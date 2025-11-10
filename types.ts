@@ -1,11 +1,20 @@
 // types.ts
 
+export interface VehicleServiceHistory {
+  id: string;
+  date: string; // ISO String
+  mileage: number;
+  description: string;
+  referenceId?: string; // Optional link to RepairOrder or Invoice
+}
+
 export interface Vehicle {
   id: string;
   licensePlate: string;
   make: string;
   model: string;
   vin?: string;
+  serviceHistory: VehicleServiceHistory[];
 }
 
 export interface Client {
@@ -105,6 +114,7 @@ export interface RepairOrder {
   technicianId?: string;
   inspectionReport?: VehicleInspectionReport;
   notes?: string;
+  mileage?: number;
 }
 
 export type InvoiceStatus = 'draft' | 'paid' | 'cancelled';
@@ -163,4 +173,14 @@ export interface FinancialTransaction {
   amount: number;
   description: string;
   referenceId: string; // ID of invoice or purchase order
+}
+
+export interface Settings {
+  garageName: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  email: string;
+  logo: string; // Base64 encoded image
 }

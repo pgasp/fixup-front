@@ -1,16 +1,41 @@
 openapi: 3.0.0
 info:
-  title: Garage Management System API
+  title: FixUp Garage Management API
   description: API pour la gestion complète d'un garage automobile, incluant clients, devis, réparations, facturation, stock et commandes.
-  version: 1.0.0
+  version: "1.2.0"
 servers:
   - url: /api/v1
     description: Serveur de l'API de développement
+
+tags:
+  - name: Clients
+    description: Gestion des fiches clients et de leurs véhicules.
+  - name: Quotes
+    description: Création et gestion des devis.
+  - name: Repair Orders
+    description: Suivi des fiches de réparation.
+  - name: Invoices
+    description: Gestion de la facturation et des paiements.
+  - name: Stock
+    description: Gestion des pièces et de l'inventaire.
+  - name: Purchases
+    description: Gestion des commandes fournisseurs.
+  - name: Technicians
+    description: Gestion des techniciens de l'atelier.
+  - name: Scheduler
+    description: Planification des rendez-vous.
+  - name: Catalogue
+    description: Gestion des modèles d'intervention.
+  - name: Accounting
+    description: Suivi des transactions financières.
+  - name: Configuration
+    description: Paramètres de l'application.
 
 paths:
   /clients:
     get:
       summary: Récupérer la liste des clients
+      tags: [Clients]
       responses:
         '200':
           description: Une liste de clients
@@ -22,6 +47,7 @@ paths:
                   $ref: '#/components/schemas/Client'
     post:
       summary: Créer un nouveau client
+      tags: [Clients]
       requestBody:
         required: true
         content:
@@ -39,6 +65,7 @@ paths:
   /clients/{clientId}:
     get:
       summary: Récupérer un client par son ID
+      tags: [Clients]
       parameters:
         - name: clientId
           in: path
@@ -54,6 +81,7 @@ paths:
                 $ref: '#/components/schemas/Client'
     put:
       summary: Mettre à jour un client
+      tags: [Clients]
       parameters:
         - name: clientId
           in: path
@@ -74,6 +102,7 @@ paths:
                 $ref: '#/components/schemas/Client'
     delete:
       summary: Supprimer un client
+      tags: [Clients]
       parameters:
         - name: clientId
           in: path
@@ -87,6 +116,7 @@ paths:
   /quotes:
     get:
       summary: Récupérer la liste des devis
+      tags: [Quotes]
       responses:
         '200':
           description: Une liste de devis
@@ -98,6 +128,7 @@ paths:
                   $ref: '#/components/schemas/Quote'
     post:
       summary: Créer un nouveau devis
+      tags: [Quotes]
       requestBody:
         content:
           application/json:
@@ -110,10 +141,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Quote'
-
+  
   /quotes/{quoteId}:
     get:
       summary: Récupérer un devis par son ID
+      tags: [Quotes]
       parameters:
         - name: quoteId
           in: path
@@ -129,6 +161,7 @@ paths:
                 $ref: '#/components/schemas/Quote'
     put:
       summary: Mettre à jour un devis
+      tags: [Quotes]
       parameters:
         - name: quoteId
           in: path
@@ -149,6 +182,7 @@ paths:
                 $ref: '#/components/schemas/Quote'
     delete:
       summary: Supprimer un devis
+      tags: [Quotes]
       parameters:
         - name: quoteId
           in: path
@@ -159,22 +193,37 @@ paths:
         '204':
           description: Devis supprimé
 
-  /parts:
-    get:
-      summary: Récupérer l'inventaire des pièces
+  /quotes/{quoteId}/status:
+    put:
+      summary: Changer le statut d'un devis
+      tags: [Quotes]
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  $ref: '#/components/schemas/QuoteStatus'
       responses:
         '200':
-          description: Liste des pièces en stock
+          description: Statut mis à jour
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Part'
-
+                $ref: '#/components/schemas/Quote'
+  
   /repair-orders:
     get:
       summary: Récupérer les fiches de réparation
+      tags: [Repair Orders]
       responses:
         '200':
           description: Liste des fiches de réparation
@@ -184,10 +233,83 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RepairOrder'
+    post:
+      summary: Créer une fiche de réparation (depuis un devis)
+      tags: [Repair Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quoteId:
+                  type: string
+                  description: L'ID du devis approuvé à convertir.
+      responses:
+        '201':
+          description: Fiche de réparation créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrder'
 
+  /repair-orders/{orderId}:
+    get:
+      summary: Récupérer une fiche de réparation
+      tags: [Repair Orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails de la fiche de réparation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrder'
+    put:
+      summary: Mettre à jour une fiche de réparation
+      tags: [Repair Orders]
+      description: Permet de changer le statut, d'assigner un technicien, d'ajouter des notes, etc.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepairOrderInput'
+      responses:
+        '200':
+          description: Fiche de réparation mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepairOrder'
+    delete:
+      summary: Supprimer une fiche de réparation
+      tags: [Repair Orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Fiche de réparation supprimée
+  
   /invoices:
     get:
       summary: Récupérer les factures
+      tags: [Invoices]
       responses:
         '200':
           description: Liste des factures
@@ -197,10 +319,132 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Invoice'
+    post:
+      summary: Créer une facture (depuis une fiche de réparation)
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repairOrderId:
+                  type: string
+                  description: L'ID de la fiche de réparation à facturer.
+      responses:
+        '201':
+          description: Facture créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+  /invoices/{invoiceId}:
+    delete:
+      summary: Supprimer une facture
+      tags: [Invoices]
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Facture supprimée
+          
+  /invoices/{invoiceId}/pay:
+    post:
+      summary: Marquer une facture comme payée
+      tags: [Invoices]
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentDetails'
+      responses:
+        '200':
+          description: Facture mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+  /parts:
+    get:
+      summary: Récupérer l'inventaire des pièces
+      tags: [Stock]
+      responses:
+        '200':
+          description: Liste des pièces en stock
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Part'
+    post:
+      summary: Ajouter une nouvelle pièce au stock
+      tags: [Stock]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartInput'
+      responses:
+        '201':
+          description: Pièce créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+
+  /parts/{partId}:
+    put:
+      summary: Mettre à jour une pièce
+      tags: [Stock]
+      parameters:
+        - name: partId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartInput'
+      responses:
+        '200':
+          description: Pièce mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+    delete:
+      summary: Supprimer une pièce
+      tags: [Stock]
+      parameters:
+        - name: partId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Pièce supprimée
 
   /purchase-orders:
     get:
       summary: Récupérer les commandes fournisseurs
+      tags: [Purchases]
       responses:
         '200':
           description: Liste des commandes
@@ -210,43 +454,376 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PurchaseOrder'
+    post:
+      summary: Créer une commande fournisseur
+      tags: [Purchases]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseOrderInput'
+      responses:
+        '201':
+          description: Commande créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+
+  /purchase-orders/{orderId}:
+    put:
+      summary: Mettre à jour une commande fournisseur
+      tags: [Purchases]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseOrderInput'
+      responses:
+        '200':
+          description: Commande mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrder'
+    delete:
+      summary: Supprimer une commande fournisseur
+      tags: [Purchases]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Commande supprimée
+
+  /purchase-orders/{orderId}/receive:
+    post:
+      summary: Marquer une commande fournisseur comme reçue
+      tags: [Purchases]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Commande mise à jour
+
+  /purchase-orders/{orderId}/pay:
+    post:
+      summary: Enregistrer le paiement d'une commande
+      tags: [Purchases]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentDetails'
+      responses:
+        '200':
+          description: Commande mise à jour
+  
+  /technicians:
+    get:
+      summary: Récupérer la liste des techniciens
+      tags: [Technicians]
+      responses:
+        '200':
+          description: Une liste de techniciens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Technician'
+    post:
+      summary: Ajouter un nouveau technicien
+      tags: [Technicians]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TechnicianInput'
+      responses:
+        '201':
+          description: Technicien ajouté
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Technician'
+
+  /technicians/{technicianId}:
+    put:
+      summary: Mettre à jour un technicien
+      tags: [Technicians]
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TechnicianInput'
+      responses:
+        '200':
+          description: Technicien mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Technician'
+    delete:
+      summary: Supprimer un technicien
+      tags: [Technicians]
+      parameters:
+        - name: technicianId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Technicien supprimé
+
+  /templates:
+    get:
+      summary: Récupérer les modèles d'intervention
+      tags: [Catalogue]
+      responses:
+        '200':
+          description: Liste des modèles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InterventionTemplate'
+    post:
+      summary: Créer un nouveau modèle d'intervention
+      tags: [Catalogue]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InterventionTemplateInput'
+      responses:
+        '201':
+          description: Modèle créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterventionTemplate'
+
+  /templates/{templateId}:
+    get:
+      summary: Récupérer un modèle par son ID
+      tags: [Catalogue]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails du modèle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterventionTemplate'
+    put:
+      summary: Mettre à jour un modèle
+      tags: [Catalogue]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InterventionTemplateInput'
+      responses:
+        '200':
+          description: Modèle mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterventionTemplate'
+    delete:
+      summary: Supprimer un modèle
+      tags: [Catalogue]
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Modèle supprimé
+                  
+  /appointments:
+    get:
+      summary: Récupérer les rendez-vous
+      tags: [Scheduler]
+      responses:
+        '200':
+          description: Liste des rendez-vous
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Appointment'
+    post:
+      summary: Créer un nouveau rendez-vous
+      tags: [Scheduler]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentInput'
+      responses:
+        '201':
+          description: Rendez-vous créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+
+  /appointments/{appointmentId}:
+    get:
+      summary: Récupérer un rendez-vous par son ID
+      tags: [Scheduler]
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails du rendez-vous
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+    put:
+      summary: Mettre à jour un rendez-vous
+      tags: [Scheduler]
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentInput'
+      responses:
+        '200':
+          description: Rendez-vous mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+    delete:
+      summary: Supprimer un rendez-vous
+      tags: [Scheduler]
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Rendez-vous supprimé
+  
+  /transactions:
+    get:
+      summary: Récupérer les transactions financières
+      tags: [Accounting]
+      responses:
+        '200':
+          description: Grand livre des transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FinancialTransaction'
+  
+  /settings:
+    get:
+      summary: Récupérer les paramètres du garage
+      tags: [Configuration]
+      responses:
+        '200':
+          description: Paramètres actuels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+    put:
+      summary: Mettre à jour les paramètres du garage
+      tags: [Configuration]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Settings'
+      responses:
+        '200':
+          description: Paramètres mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
 
 components:
   schemas:
     Vehicle:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-        licensePlate:
-          type: string
-        make:
-          type: string
-        model:
-          type: string
-        vin:
-          type: string
+        id: { type: string, format: uuid }
+        licensePlate: { type: string }
+        make: { type: string }
+        model: { type: string }
+        vin: { type: string, nullable: true }
 
     Client:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        email:
-          type: string
-          format: email
-        phone:
-          type: string
-        address:
-          type: string
-        postalCode:
-          type: string
-        city:
-          type: string
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        address: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
         vehicles:
           type: array
           items:
@@ -254,20 +831,14 @@ components:
     
     ClientInput:
       type: object
+      required: [name]
       properties:
-        name:
-          type: string
-        email:
-          type: string
-          format: email
-        phone:
-          type: string
-        address:
-          type: string
-        postalCode:
-          type: string
-        city:
-          type: string
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        address: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
         vehicles:
           type: array
           items:
@@ -276,52 +847,66 @@ components:
     PartItem:
       type: object
       properties:
-        id:
-          type: string
-        partId:
-          type: string
-        description:
-          type: string
-        quantity:
-          type: number
-        unitPrice:
-          type: number
+        id: { type: string }
+        partId: { type: string }
+        description: { type: string }
+        quantity: { type: number }
+        unitPrice: { type: number }
 
     LaborTask:
       type: object
       properties:
-        id:
-          type: string
-        description:
-          type: string
-        hours:
-          type: number
-        rate:
-          type: number
+        id: { type: string }
+        description: { type: string }
+        hours: { type: number }
+        rate: { type: number }
         partItems:
           type: array
           items:
             $ref: '#/components/schemas/PartItem'
 
-    Quote:
+    LaborTaskInput:
       type: object
       properties:
-        id:
-          type: string
-        quoteNumber:
-          type: string
-        clientId:
-          type: string
-        vehicleId:
-          type: string
+        description: { type: string }
+        hours: { type: number }
+        rate: { type: number }
+        partItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartItem'
+            
+    QuoteStatus:
+      type: string
+      enum: [draft, sent, approved, rejected]
+      
+    QuoteStatusHistory:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/QuoteStatus'
         date:
           type: string
           format: date-time
-        taxRate:
-          type: number
+          
+    Quote:
+      type: object
+      properties:
+        id: { type: string }
+        quoteNumber: { type: string }
+        clientId: { type: string }
+        vehicleId: { type: string }
+        date: { type: string, format: date-time }
+        validityDuration: { type: number }
+        taxRate: { type: number }
         status:
-          type: string
-          enum: [draft, sent, approved, rejected]
+          $ref: '#/components/schemas/QuoteStatus'
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteStatusHistory'
+        isConvertedToRepairOrder: { type: boolean, nullable: true }
+        repairDate: { type: string, format: date-time, nullable: true }
         laborItems:
           type: array
           items:
@@ -330,15 +915,10 @@ components:
     QuoteInput:
       type: object
       properties:
-        clientId:
-          type: string
-        vehicleId:
-          type: string
-        date:
-          type: string
-          format: date-time
-        taxRate:
-          type: number
+        clientId: { type: string }
+        vehicleId: { type: string }
+        date: { type: string, format: date-time }
+        taxRate: { type: number }
         laborItems:
           type: array
           items:
@@ -347,89 +927,223 @@ components:
     Part:
       type: object
       properties:
-        id:
-          type: string
-        name:
-          type: string
-        reference:
-          type: string
-        supplier:
-          type: string
-        stock:
-          type: integer
-        purchasePrice:
-          type: number
-        pricingMethod:
-          type: string
-          enum: [fixed, markup]
-        sellingPrice:
-          type: number
-        markupPercentage:
-          type: number
+        id: { type: string }
+        name: { type: string }
+        reference: { type: string }
+        supplier: { type: string }
+        stock: { type: integer }
+        purchasePrice: { type: number }
+        pricingMethod: { type: string, enum: [fixed, markup] }
+        sellingPrice: { type: number, nullable: true }
+        markupPercentage: { type: number, nullable: true }
+
+    PartInput:
+      type: object
+      properties:
+        name: { type: string }
+        reference: { type: string }
+        supplier: { type: string }
+        stock: { type: integer }
+        purchasePrice: { type: number }
+        pricingMethod: { type: string, enum: [fixed, markup] }
+        sellingPrice: { type: number, nullable: true }
+        markupPercentage: { type: number, nullable: true }
+
+    VehicleInspectionItem:
+      type: object
+      properties:
+        id: { type: string }
+        description: { type: string }
+        photo: { type: string, description: "Base64 encoded image" }
+        
+    VehicleInspectionReport:
+      type: object
+      properties:
+        id: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VehicleInspectionItem'
+        notes: { type: string }
+
+    RepairOrderStatus:
+      type: string
+      enum: [scheduled, workshop_entry, diagnosis_complete, in_progress, waiting_for_part, completed, waiting_for_invoicing, invoiced, cancelled]
 
     RepairOrder:
       type: object
       properties:
-        id:
-          type: string
+        id: { type: string }
         quote:
           $ref: '#/components/schemas/Quote'
         status:
-          type: string
-          enum: [scheduled, workshop_entry, in_progress, completed, invoiced, cancelled]
-        technicianId:
-          type: string
+          $ref: '#/components/schemas/RepairOrderStatus'
+        technicianId: { type: string, nullable: true }
+        inspectionReport:
+          $ref: '#/components/schemas/VehicleInspectionReport'
+          nullable: true
+        notes: { type: string, nullable: true }
+        mileage: { type: number, nullable: true }
 
+    RepairOrderInput:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/RepairOrderStatus'
+        technicianId: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        mileage: { type: number, nullable: true }
+        
+    PaymentDetails:
+      type: object
+      properties:
+        date: { type: string, format: date-time }
+        method: { type: string, enum: [card, cash, transfer, other] }
+
+    InvoiceStatus:
+      type: string
+      enum: [draft, paid, cancelled]
+      
     Invoice:
       type: object
       properties:
-        id:
-          type: string
-        invoiceNumber:
-          type: string
+        id: { type: string }
+        invoiceNumber: { type: string }
         quote:
           $ref: '#/components/schemas/Quote'
-        date:
-          type: string
-          format: date-time
-        dueDate:
-          type: string
-          format: date-time
+        date: { type: string, format: date-time }
+        dueDate: { type: string, format: date-time }
         status:
-          type: string
-          enum: [draft, paid, cancelled]
+          $ref: '#/components/schemas/InvoiceStatus'
+        paymentDetails:
+          $ref: '#/components/schemas/PaymentDetails'
+          nullable: true
 
     PurchaseOrderItem:
       type: object
       properties:
-        id:
-          type: string
-        partId:
-          type: string
-        quantity:
-          type: integer
-        unitPrice:
-          type: number
+        id: { type: string }
+        partId: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+          
+    PurchaseOrderStatus:
+      type: string
+      enum: [draft, ordered, partially_received, received, cancelled]
           
     PurchaseOrder:
       type: object
       properties:
-        id:
-          type: string
-        orderNumber:
-          type: string
-        supplier:
-          type: string
-        date:
-          type: string
-          format: date-time
-        expectedDeliveryDate:
-          type: string
-          format: date-time
+        id: { type: string }
+        orderNumber: { type: string }
+        supplier: { type: string }
+        date: { type: string, format: date-time }
+        expectedDeliveryDate: { type: string, format: date-time, nullable: true }
         status:
-          type: string
-          enum: [draft, ordered, received]
+          $ref: '#/components/schemas/PurchaseOrderStatus'
         items:
           type: array
           items:
             $ref: '#/components/schemas/PurchaseOrderItem'
+        isPaid: { type: boolean, nullable: true }
+        paymentDate: { type: string, format: date-time, nullable: true }
+
+    PurchaseOrderInput:
+      type: object
+      properties:
+        supplier: { type: string }
+        date: { type: string, format: date-time }
+        expectedDeliveryDate: { type: string, format: date-time, nullable: true }
+        status:
+          $ref: '#/components/schemas/PurchaseOrderStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderItem'
+        isPaid: { type: boolean, nullable: true }
+        paymentDate: { type: string, format: date-time, nullable: true }
+
+    Technician:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        specialty: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        phone: { type: string, nullable: true }
+        hireDate: { type: string, format: date-time, nullable: true }
+        
+    TechnicianInput:
+      type: object
+      properties:
+        name: { type: string }
+        specialty: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
+        phone: { type: string, nullable: true }
+        hireDate: { type: string, format: date-time, nullable: true }
+
+    InterventionTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        laborItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaborTask'
+
+    InterventionTemplateInput:
+      type: object
+      properties:
+        name: { type: string }
+        laborItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaborTaskInput'
+            
+    Appointment:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        quoteId: { type: string }
+        clientId: { type: string }
+        vehicleId: { type: string }
+
+    AppointmentInput:
+      type: object
+      properties:
+        title: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        quoteId: { type: string }
+        clientId: { type: string }
+        vehicleId: { type: string }
+
+    FinancialTransactionType:
+      type: string
+      enum: [revenue, expense]
+      
+    FinancialTransaction:
+      type: object
+      properties:
+        id: { type: string }
+        date: { type: string, format: date-time }
+        type:
+          $ref: '#/components/schemas/FinancialTransactionType'
+        amount: { type: number }
+        description: { type: string }
+        referenceId: { type: string, description: "ID of invoice or purchase order" }
+
+    Settings:
+      type: object
+      properties:
+        garageName: { type: string }
+        address: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        logo: { type: string, description: "Base64 encoded image" }

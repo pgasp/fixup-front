@@ -1,11 +1,12 @@
 import React from 'react';
-import { Quote, Client, Vehicle, QuoteStatus, Appointment, RepairOrder } from '../types';
+import { Quote, Client, Vehicle, QuoteStatus, Appointment, RepairOrder, Settings } from '../types';
 import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, PaperPlaneIcon, CheckCircleIcon, XIcon } from './icons';
 
 interface QuoteViewProps {
   quote: Quote | null;
   client: Client | null;
   vehicle: Vehicle | null;
+  settings: Settings;
   appointment?: Appointment;
   repairOrder?: RepairOrder;
   onViewRepairOrder: (order: RepairOrder) => void;
@@ -19,7 +20,7 @@ const statusLifecycleConfig: { [key in QuoteStatus]: { text: string; icon: React
     rejected: { text: 'Rejeté', icon: XIcon, color: 'text-red-500 dark:text-red-400' },
 };
 
-const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, appointment, repairOrder, onViewRepairOrder, onViewInScheduler }) => {
+const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings, appointment, repairOrder, onViewRepairOrder, onViewInScheduler }) => {
   if (!quote || !client || !vehicle) {
     return <div className="text-center p-8">Chargement des données du devis...</div>;
   }
@@ -48,11 +49,16 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, appointme
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">DEVIS</h1>
           <p className="font-mono text-gray-600 dark:text-gray-400">{quote.quoteNumber}</p>
         </div>
-        <div className="text-right">
-          <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">GARAGE SUPER PRO</h2>
-          <p>123 Avenue du Moteur</p>
-          <p>75015 Paris</p>
-          <p>Tél: 01 23 45 67 89</p>
+        <div className="text-right flex items-start gap-4">
+            <div className="flex-shrink-0">
+                {settings.logo && <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain"/>}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">{settings.garageName}</h2>
+              <p>{settings.address}</p>
+              <p>{settings.postalCode} {settings.city}</p>
+              <p>Tél: {settings.phone}</p>
+            </div>
         </div>
       </header>
 

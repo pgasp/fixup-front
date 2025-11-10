@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
-import { Quote, RepairOrder, Client, QuoteStatus, Invoice } from '../types';
-import { UsersIcon, FileTextIcon, WrenchIcon, CheckCircleIcon, ReceiptTaxIcon } from './icons';
+import { Quote, RepairOrder, Client, Invoice, PurchaseOrder, Technician } from '../types';
+import { UsersIcon, FileTextIcon, WrenchIcon, ReceiptTaxIcon, ShoppingCartIcon } from './icons';
 
 interface ReportsDashboardProps {
   quotes: Quote[];
   repairOrders: RepairOrder[];
   invoices: Invoice[];
   clients: Client[];
+  purchaseOrders: PurchaseOrder[];
+  technicians: Technician[];
 }
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
@@ -21,85 +23,75 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
     </div>
 );
 
-const BarChart: React.FC<{ data: { label: string, value: number, color: string }[] }> = ({ data }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1); // Avoid division by zero
-    return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h3 className="font-semibold mb-4 text-gray-800 dark:text-gray-200">Répartition des Devis par Statut</h3>
-            <div className="space-y-2">
-                {data.map(({ label, value, color }) => (
-                    <div key={label} className="flex items-center">
-                        <span className="w-24 text-sm text-gray-600 dark:text-gray-400">{label}</span>
-                        <div className="flex-grow bg-gray-200 dark:bg-gray-700 rounded-full h-6">
-                            <div
-                                className={`${color} h-6 rounded-full flex items-center justify-end pr-2 text-white font-bold text-xs`}
-                                style={{ width: `${(value / maxValue) * 100}%` }}
-                            >
-                                {value > 0 ? value : ''}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+
+const getWeekStartAndEnd = (date: Date): { start: Date, end: Date } => {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Lundi comme premier jour
+    start.setDate(diff);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    
+    return { start, end };
 };
 
-const calculateTotal = (quote: Quote) => {
-    const subtotal = quote.laborItems.reduce((sum, labor) => {
-        const laborCost = labor.hours * labor.rate;
-        const partsCost = labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0);
-        return sum + laborCost + partsCost;
-    }, 0);
-    return subtotal * (1 + quote.taxRate / 100);
-}
 
-const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ quotes, repairOrders, invoices, clients }) => {
+const ReportsDashboard: React.FC<ReportsDashboardProps> = ({ quotes, repairOrders, invoices, clients, purchaseOrders, technicians }) => {
 
-    const potentialRevenue = useMemo(() => {
-        const total = quotes.reduce((acc, quote) => {
-            if (quote.status === 'approved') {
-                return acc + calculateTotal(quote);
-            }
-            return acc;
-        }, 0);
-        return total.toFixed(2) + '€';
-    }, [quotes]);
+    const weeklyActivity = useMemo(() => {
+        const { start, end } = getWeekStartAndEnd(new Date());
 
-    const collectedRevenue = useMemo(() => {
-        const total = invoices.reduce((acc, invoice) => {
-            if (invoice.status === 'paid') {
-                return acc + calculateTotal(invoice.quote);
-            }
-            return acc;
-        }, 0);
-        return total.toFixed(2) + '€';
-    }, [invoices]);
+        const isDateInWeek = (dateStr: string) => {
+            const date = new Date(dateStr);
+            return date >= start && date <= end;
+        };
+        
+        const newQuotes = quotes.filter(q => isDateInWeek(q.date));
+        const newInvoices = invoices.filter(i => isDateInWeek(i.date));
+        const newRepairOrders = repairOrders.filter(ro => isDateInWeek(ro.quote.date)); // Assuming creation date is quote date
+        const newPurchaseOrders = purchaseOrders.filter(po => isDateInWeek(po.date));
+
+        const technicianWorkload = technicians.map(tech => ({
+            ...tech,
+            assignedRepairs: newRepairOrders.filter(ro => ro.technicianId === tech.id).length
+        })).sort((a, b) => b.assignedRepairs - a.assignedRepairs);
+
+        return {
+            newQuotesCount: newQuotes.length,
+            newInvoicesCount: newInvoices.length,
+            newRepairOrdersCount: newRepairOrders.length,
+            newPurchaseOrdersCount: newPurchaseOrders.length,
+            technicianWorkload,
+        }
+
+    }, [quotes, repairOrders, invoices, purchaseOrders, technicians]);
     
-    const quoteStatusCounts = useMemo(() => {
-        const counts: { [key in QuoteStatus]: number } = { draft: 0, sent: 0, approved: 0, rejected: 0 };
-        quotes.forEach(q => {
-            counts[q.status]++;
-        });
-        return [
-            { label: 'Brouillons', value: counts.draft, color: 'bg-gray-500' },
-            { label: 'Envoyés', value: counts.sent, color: 'bg-blue-500' },
-            { label: 'Approuvés', value: counts.approved, color: 'bg-green-500' },
-            { label: 'Rejetés', value: counts.rejected, color: 'bg-red-500' },
-        ];
-    }, [quotes]);
 
     return (
         <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">Activité de la semaine</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="CA Encaissé" value={collectedRevenue} icon={<ReceiptTaxIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
-                <StatCard title="CA Potentiel (Devis Approuvés)" value={potentialRevenue} icon={<CheckCircleIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
-                <StatCard title="Total Clients" value={clients.length} icon={<UsersIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
-                <StatCard title="Réparations en cours" value={repairOrders.filter(ro => !['completed', 'waiting_for_invoicing', 'cancelled', 'invoiced'].includes(ro.status)).length} icon={<WrenchIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
+                <StatCard title="Nouveaux Devis" value={weeklyActivity.newQuotesCount} icon={<FileTextIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
+                <StatCard title="Nouvelles Réparations" value={weeklyActivity.newRepairOrdersCount} icon={<WrenchIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
+                <StatCard title="Factures Émises" value={weeklyActivity.newInvoicesCount} icon={<ReceiptTaxIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
+                <StatCard title="Nouvelles Commandes" value={weeklyActivity.newPurchaseOrdersCount} icon={<ShoppingCartIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
             </div>
             
             <div className="grid grid-cols-1 gap-6">
-                <BarChart data={quoteStatusCounts} />
+                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                    <h3 className="font-semibold mb-4 text-gray-800 dark:text-gray-200">Charge des techniciens (semaine)</h3>
+                    <ul className="space-y-3">
+                        {weeklyActivity.technicianWorkload.map(tech => (
+                            <li key={tech.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
+                                <span className="font-medium text-gray-800 dark:text-gray-200">{tech.name}</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{tech.assignedRepairs} réparation(s)</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Invoice, Client, Vehicle } from '../types';
+import { Invoice, Client, Vehicle, Settings } from '../types';
 // FIX: Import 'CheckCircleIcon'.
 import { CarIcon, UsersIcon, CalendarIcon, CreditCardIcon, ClockIcon, CheckCircleIcon } from './icons';
 
@@ -7,10 +7,11 @@ interface InvoiceViewProps {
   invoice: Invoice | null;
   client: Client | null;
   vehicle: Vehicle | null;
+  settings: Settings;
   onMarkAsPaid: (invoice: Invoice) => void;
 }
 
-const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, onMarkAsPaid }) => {
+const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, settings, onMarkAsPaid }) => {
   if (!invoice || !client || !vehicle) {
     return <div className="text-center p-8">Chargement des données de la facture...</div>;
   }
@@ -33,10 +34,15 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, onM
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">FACTURE</h1>
           <p className="font-mono text-gray-600 dark:text-gray-400">{invoice.invoiceNumber}</p>
         </div>
-        <div className="text-right">
-          <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">GARAGE SUPER PRO</h2>
-          <p>123 Avenue du Moteur</p>
-          <p>75015 Paris</p>
+        <div className="text-right flex items-start gap-4">
+          <div className="flex-shrink-0">
+              {settings.logo && <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain"/>}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">{settings.garageName}</h2>
+            <p>{settings.address}</p>
+            <p>{settings.postalCode} {settings.city}</p>
+          </div>
         </div>
       </header>
       

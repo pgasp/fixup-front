@@ -5,12 +5,14 @@ const C_DUPONT_ID = 'client-1';
 const C_CURIE_ID = 'client-2';
 const C_MARTIN_ID = 'client-3';
 const C_DUBOIS_ID = 'client-4';
+const C_LHERMITE_ID = 'client-5'; // New client
 
 const V_CLIO_ID = 'v-1';
 const V_308_ID = 'v-2';
 const V_C4_ID = 'v-3';
 const V_GOLF_ID = 'v-4';
 const V_YARIS_ID = 'v-5';
+const V_208_ID = 'v-6'; // New vehicle
 
 const P_FILTRE_HUILE_ID = 'part-1';
 const P_PLAQUETTES_AV_ID = 'part-2';
@@ -35,13 +37,16 @@ const Q_MARTIN_GOLF_ID = 'quote-3';
 const Q_DUBOIS_YARIS_ID = 'quote-4';
 const Q_DUPONT_308_ID = 'quote-5';
 const Q_CURIE_C4_REPAIR_ID = 'quote-6';
+const Q_LHERMITE_208_ID = 'quote-7'; // New quote
 
 const APPT_DUPONT_CLIO_ID = 'appt-1';
 const APPT_DUPONT_308_ID = 'appt-2';
 const APPT_CURIE_C4_ID = 'appt-3';
+const APPT_LHERMITE_208_ID = 'appt-4'; // New appointment
 
 const RO_DUPONT_CLIO_ID = 'ro-1';
 const RO_CURIE_C4_ID = 'ro-2';
+const RO_LHERMITE_208_ID = 'ro-3'; // New repair order
 
 const INV_CURIE_C4_ID = 'inv-1';
 
@@ -58,8 +63,8 @@ export const seedClients: Client[] = [
     postalCode: '75001',
     city: 'Paris',
     vehicles: [
-      { id: V_CLIO_ID, licensePlate: 'AA-123-BB', make: 'Renault', model: 'Clio' },
-      { id: V_308_ID, licensePlate: 'CC-456-DD', make: 'Peugeot', model: '308' },
+      { id: V_CLIO_ID, licensePlate: 'AA-123-BB', make: 'Renault', model: 'Clio', serviceHistory: [] },
+      { id: V_308_ID, licensePlate: 'CC-456-DD', make: 'Peugeot', model: '308', serviceHistory: [] },
     ],
   },
   {
@@ -70,7 +75,21 @@ export const seedClients: Client[] = [
     address: '45 Avenue des Champs-Élysées',
     postalCode: '75008',
     city: 'Paris',
-    vehicles: [{ id: V_C4_ID, licensePlate: 'EE-789-FF', make: 'Citroën', model: 'C4' }],
+    vehicles: [{ 
+        id: V_C4_ID, 
+        licensePlate: 'EE-789-FF', 
+        make: 'Citroën', 
+        model: 'C4',
+        serviceHistory: [
+            {
+                id: 'hist-1',
+                date: '2024-06-21T17:00:00.000Z',
+                mileage: 125450,
+                description: 'Remplacement batterie',
+                referenceId: INV_CURIE_C4_ID,
+            }
+        ]
+    }],
   },
   {
     id: C_MARTIN_ID,
@@ -80,7 +99,7 @@ export const seedClients: Client[] = [
     address: '10 Rue du Faubourg Saint-Honoré',
     postalCode: '75008',
     city: 'Paris',
-    vehicles: [{ id: V_GOLF_ID, licensePlate: 'GG-111-HH', make: 'Volkswagen', model: 'Golf' }],
+    vehicles: [{ id: V_GOLF_ID, licensePlate: 'GG-111-HH', make: 'Volkswagen', model: 'Golf', serviceHistory: [] }],
   },
   {
     id: C_DUBOIS_ID,
@@ -90,8 +109,18 @@ export const seedClients: Client[] = [
     address: '25 Boulevard Haussmann',
     postalCode: '75009',
     city: 'Paris',
-    vehicles: [{ id: V_YARIS_ID, licensePlate: 'II-222-JJ', make: 'Toyota', model: 'Yaris' }],
+    vehicles: [{ id: V_YARIS_ID, licensePlate: 'II-222-JJ', make: 'Toyota', model: 'Yaris', serviceHistory: [] }],
   },
+  {
+    id: C_LHERMITE_ID,
+    name: "Bernard L'Hermite",
+    email: 'bernard.lhermite@email.com',
+    phone: '0633445566',
+    address: '88 Rue de Rivoli',
+    postalCode: '75004',
+    city: 'Paris',
+    vehicles: [{ id: V_208_ID, licensePlate: 'KK-333-LL', make: 'Peugeot', model: '208', serviceHistory: [] }],
+  }
 ];
 
 export const seedParts: Part[] = [
@@ -285,6 +314,27 @@ export const seedQuotes: Quote[] = [
             { id: 'pi-6', partId: P_BATTERIE_VARTA_ID, description: 'Batterie Varta Blue Dynamic', quantity: 1, unitPrice: 105.00 }
         ]}
     ]
+  },
+  {
+    id: Q_LHERMITE_208_ID,
+    quoteNumber: 'DEV-00007',
+    clientId: C_LHERMITE_ID,
+    vehicleId: V_208_ID,
+    date: '2024-07-25T10:00:00.000Z',
+    validityDuration: 30,
+    taxRate: 20,
+    status: 'approved',
+    statusHistory: [
+        { status: 'draft', date: '2024-07-25T10:00:00.000Z' },
+        { status: 'sent', date: '2024-07-25T10:30:00.000Z' },
+        { status: 'approved', date: '2024-07-26T14:00:00.000Z' }
+    ],
+    isConvertedToRepairOrder: true,
+    laborItems: [
+        { id: 'li-7', description: "Remplacement amortisseurs avant", hours: 2.5, rate: 70, partItems: [
+            { id: 'pi-7', partId: P_AMORTISSEURS_AV_ID, description: 'Amortisseurs (AV)', quantity: 1, unitPrice: 180.00 }
+        ]}
+    ]
   }
 ];
 
@@ -315,6 +365,15 @@ export const seedAppointments: Appointment[] = [
         quoteId: Q_CURIE_C4_REPAIR_ID,
         clientId: C_CURIE_ID,
         vehicleId: V_C4_ID,
+    },
+    {
+        id: APPT_LHERMITE_208_ID,
+        title: "Réparation: B. L'Hermite - Peugeot 208",
+        start: '2024-08-01T09:00:00.000Z',
+        end: '2024-08-01T12:00:00.000Z',
+        quoteId: Q_LHERMITE_208_ID,
+        clientId: C_LHERMITE_ID,
+        vehicleId: V_208_ID,
     }
 ];
 
@@ -324,14 +383,24 @@ export const seedRepairOrders: RepairOrder[] = [
         quote: seedQuotes.find(q => q.id === Q_DUPONT_CLIO_ID)!,
         status: 'in_progress',
         technicianId: T_LAVOINE_ID,
-        notes: "Le client signale un bruit de claquement au démarrage. A vérifier."
+        notes: "Le client signale un bruit de claquement au démarrage. A vérifier.",
+        mileage: 85450,
     },
     {
         id: RO_CURIE_C4_ID,
         quote: seedQuotes.find(q => q.id === Q_CURIE_C4_REPAIR_ID)!,
         status: 'invoiced',
         technicianId: T_MARCEAU_ID,
-        notes: "Batterie remplacée. Système de charge vérifié, OK."
+        notes: "Batterie remplacée. Système de charge vérifié, OK.",
+        mileage: 125450,
+    },
+    {
+        id: RO_LHERMITE_208_ID,
+        quote: seedQuotes.find(q => q.id === Q_LHERMITE_208_ID)!,
+        status: 'waiting_for_part',
+        technicianId: T_CLERC_ID,
+        notes: "Amortisseurs AV à remplacer. Pièce commandée chez Monroe, en attente de livraison.",
+        mileage: 45200,
     }
 ];
 
@@ -381,8 +450,9 @@ export const seedPurchaseOrders: PurchaseOrder[] = [
         id: 'po-3',
         orderNumber: 'CMD-00003',
         supplier: 'Monroe',
-        date: '2024-07-24T00:00:00.000Z',
-        status: 'draft',
+        date: '2024-07-26T00:00:00.000Z',
+        expectedDeliveryDate: '2024-08-02T00:00:00.000Z',
+        status: 'ordered',
         items: [
              { id: 'poi-3-1', partId: P_AMORTISSEURS_AV_ID, quantity: 4, unitPrice: 120.00 },
         ],

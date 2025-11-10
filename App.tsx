@@ -1,106 +1,158 @@
-import React, { useState, useMemo } from 'react';
-import { Client, Quote, InterventionTemplate, Part, Appointment, RepairOrder, VehicleInspectionReport, Invoice, PaymentDetails, Technician, PurchaseOrder, FinancialTransaction, PurchaseOrderItem } from './types';
-import useLocalStorage from './hooks/useLocalStorage';
-import { seedClients, seedInterventionTemplates, seedParts, seedTechnicians, seedPurchaseOrders, seedQuotes, seedAppointments, seedRepairOrders, seedInvoices, seedFinancialTransactions } from './services/seedData';
-// FIX: Import missing icons `UserCircleIcon` and `PlusIcon`.
-import { FileTextIcon, UsersIcon, WrenchScrewdriverIcon, WrenchIcon, CalendarIcon, ReceiptTaxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, BoxIcon, WalletIcon, BookOpenIcon, ChevronDownIcon, TruckIcon, UserCircleIcon, PlusIcon } from './components/icons';
 
-// Import Components
-import ClientList from './components/ClientList';
-import ClientForm from './components/ClientForm';
-import ConfirmationModal from './components/ConfirmationModal';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import useLocalStorage from './hooks/useLocalStorage';
+// FIX: Add missing type imports for VehicleInspectionReport and PaymentDetails.
+import { 
+    Client, Quote, Appointment, RepairOrder, Invoice, Part, Technician, InterventionTemplate, 
+    VehicleServiceHistory, PurchaseOrder, FinancialTransaction, Settings, RepairOrderStatus, QuoteStatus, VehicleInspectionReport, PaymentDetails
+} from './types';
+
+// Import seed data
+import { 
+    seedClients, seedQuotes, seedAppointments, seedRepairOrders, seedInvoices, seedParts, 
+    seedTechnicians, seedInterventionTemplates, seedPurchaseOrders, seedFinancialTransactions 
+} from './services/seedData';
+
+// Import components
 import QuoteList from './components/QuoteList';
 import QuoteForm from './components/QuoteForm';
+import ClientList from './components/ClientList';
+import ClientForm from './components/ClientForm';
 import Modal from './components/Modal';
 import QuoteView from './components/QuoteView';
+import ConfirmationModal from './components/ConfirmationModal';
 import StatusChangeModal from './components/StatusChangeModal';
 import AppointmentForm from './components/AppointmentForm';
 import Scheduler from './components/Scheduler';
-import InterventionTemplateList from './components/InterventionTemplateList';
-import InterventionTemplateForm from './components/InterventionTemplateForm';
-import PartList from './components/PartList';
-import PartForm from './components/PartForm';
 import RepairOrderList from './components/RepairOrderList';
 import RepairOrderView from './components/RepairOrderView';
 import VehicleInspectionForm from './components/VehicleInspectionForm';
 import InvoiceList from './components/InvoiceList';
 import InvoiceView from './components/InvoiceView';
 import PaymentForm from './components/PaymentForm';
+import InterventionTemplateList from './components/InterventionTemplateList';
+import InterventionTemplateForm from './components/InterventionTemplateForm';
 import TechnicianList from './components/TechnicianList';
 import TechnicianForm from './components/TechnicianForm';
+import PartList from './components/PartList';
+import PartForm from './components/PartForm';
 import PurchaseOrderList from './components/PurchaseOrderList';
 import PurchaseOrderForm from './components/PurchaseOrderForm';
+import PurchaseOrderPaymentForm from './components/PurchaseOrderPaymentForm';
 import ReportsDashboard from './components/ReportsDashboard';
 import AccountingDashboard from './components/AccountingDashboard';
-import PurchaseOrderPaymentForm from './components/PurchaseOrderPaymentForm';
+import SettingsComponent from './components/Settings';
+
+// Import icons for sidebar
+// FIX: Add missing icon import for WalletIcon.
+import { 
+    FileTextIcon, UsersIcon, CalendarIcon, WrenchIcon, ReceiptTaxIcon, BookOpenIcon, 
+    BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon
+} from './components/icons';
 
 
-type View = 'dashboard' | 'quotes' | 'clients' | 'invoices' | 'repairs' | 'scheduler' | 'stock' | 'purchases' | 'technicians' | 'templates' | 'accounting' | 'settings';
+type View = 'quotes' | 'clients' | 'scheduler' | 'repair_orders' | 'invoices' | 'templates' | 'technicians' | 'parts' | 'purchase_orders' | 'reports' | 'accounting' | 'settings';
 
 const App: React.FC = () => {
-    const [view, setView] = useState<View>('dashboard');
-    const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
-
-    // State Management using useLocalStorage hook
+    // Main state management using useLocalStorage hook
     const [clients, setClients] = useLocalStorage<Client[]>('clients', seedClients);
     const [quotes, setQuotes] = useLocalStorage<Quote[]>('quotes', seedQuotes);
-    const [interventionTemplates, setInterventionTemplates] = useLocalStorage<InterventionTemplate[]>('interventionTemplates', seedInterventionTemplates);
-    const [parts, setParts] = useLocalStorage<Part[]>('parts', seedParts);
     const [appointments, setAppointments] = useLocalStorage<Appointment[]>('appointments', seedAppointments);
     const [repairOrders, setRepairOrders] = useLocalStorage<RepairOrder[]>('repairOrders', seedRepairOrders);
     const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', seedInvoices);
+    const [parts, setParts] = useLocalStorage<Part[]>('parts', seedParts);
     const [technicians, setTechnicians] = useLocalStorage<Technician[]>('technicians', seedTechnicians);
+    const [interventionTemplates, setInterventionTemplates] = useLocalStorage<InterventionTemplate[]>('interventionTemplates', seedInterventionTemplates);
     const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', seedPurchaseOrders);
     const [transactions, setTransactions] = useLocalStorage<FinancialTransaction[]>('financialTransactions', seedFinancialTransactions);
-    const [openNavs, setOpenNavs] = useLocalStorage<string[]>('openNavs', ['atelier', 'gestionClient']);
+    const [settings, setSettings] = useLocalStorage<Settings>('settings', { garageName: 'FixUp', address: '1 Rue de la République', postalCode: '75001', city: 'Paris', phone: '0123456789', email: 'contact@fixup.com', logo: '' });
+    const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
 
-
-    // Modal States
-    const [isClientFormOpen, setIsClientFormOpen] = useState(false);
-    const [editingClient, setEditingClient] = useState<Client | null>(null);
-    const [clientToDelete, setClientToDelete] = useState<string | null>(null);
-
+    // UI State
+    const [activeView, setActiveView] = useState<View>('reports');
+    
+    // Modal states
     const [isQuoteFormOpen, setIsQuoteFormOpen] = useState(false);
-    const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-    const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
+    const [quoteToEdit, setQuoteToEdit] = useState<Quote | null>(null);
+    const [isClientFormOpen, setIsClientFormOpen] = useState(false);
+    const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
     const [quoteToView, setQuoteToView] = useState<Quote | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ id: string; type: string; name: string } | null>(null);
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [quoteForStatusChange, setQuoteForStatusChange] = useState<Quote | null>(null);
-    
-    const [quoteToSchedule, setQuoteToSchedule] = useState<Quote | null>(null);
     const [isAppointmentFormOpen, setIsAppointmentFormOpen] = useState(false);
-
-    const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
-    const [editingTemplate, setEditingTemplate] = useState<InterventionTemplate | null>(null);
-    const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
-
-    const [isPartFormOpen, setIsPartFormOpen] = useState(false);
-    const [editingPart, setEditingPart] = useState<Part | null>(null);
-    const [partToDelete, setPartToDelete] = useState<string | null>(null);
-    
-    const [repairOrderToView, setRepairOrderToView] = useState<RepairOrder | null>(null);
-    const [repairOrderToDelete, setRepairOrderToDelete] = useState<string | null>(null);
-    const [inspectionForRepairOrder, setInspectionForRepairOrder] = useState<string|null>(null);
-    
+    const [quoteToSchedule, setQuoteToSchedule] = useState<Quote | null>(null);
+    const [orderToView, setOrderToView] = useState<RepairOrder | null>(null);
+    const [isInspectionFormOpen, setIsInspectionFormOpen] = useState(false);
+    const [orderForInspection, setOrderForInspection] = useState<RepairOrder | null>(null);
     const [invoiceToView, setInvoiceToView] = useState<Invoice | null>(null);
-    const [invoiceToDelete, setInvoiceToDelete] = useState<string | null>(null);
+    const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
     const [invoiceForPayment, setInvoiceForPayment] = useState<Invoice | null>(null);
-
+    const [isTemplateFormOpen, setIsTemplateFormOpen] = useState(false);
+    const [templateToEdit, setTemplateToEdit] = useState<InterventionTemplate | null>(null);
     const [isTechnicianFormOpen, setIsTechnicianFormOpen] = useState(false);
-    const [editingTechnician, setEditingTechnician] = useState<Technician | null>(null);
-    const [technicianToDelete, setTechnicianToDelete] = useState<string | null>(null);
+    const [technicianToEdit, setTechnicianToEdit] = useState<Technician | null>(null);
+    const [isPartFormOpen, setIsPartFormOpen] = useState(false);
+    const [partToEdit, setPartToEdit] = useState<Part | null>(null);
+    const [isPOFormOpen, setIsPOFormOpen] = useState(false);
+    const [poToEdit, setPOToEdit] = useState<PurchaseOrder | null>(null);
+    const [isPOPaymentFormOpen, setIsPOPaymentFormOpen] = useState(false);
+    const [poForPayment, setPOForPayment] = useState<PurchaseOrder | null>(null);
+    const [openSection, setOpenSection] = useState('Atelier');
 
-    const [isPurchaseOrderFormOpen, setIsPurchaseOrderFormOpen] = useState(false);
-    const [editingPurchaseOrder, setEditingPurchaseOrder] = useState<PurchaseOrder | null>(null);
-    const [purchaseOrderToDelete, setPurchaseOrderToDelete] = useState<string | null>(null);
-    const [purchaseOrderForPayment, setPurchaseOrderForPayment] = useState<PurchaseOrder | null>(null);
 
-    React.useEffect(() => {
+    // Computed values
+    const nextQuoteNumber = useMemo(() => {
+        const lastNumber = quotes.reduce((max, q) => {
+            const num = parseInt(q.quoteNumber.split('-')[1], 10);
+            return num > max ? num : max;
+        }, 0);
+        return `DEV-${(lastNumber + 1).toString().padStart(5, '0')}`;
+    }, [quotes]);
+    const nextInvoiceNumber = useMemo(() => {
+        const lastNumber = invoices.reduce((max, i) => {
+            const num = parseInt(i.invoiceNumber.split('-')[2], 10);
+            return num > max ? num : max;
+        }, 0);
+        return `FAC-${new Date().getFullYear()}-${(lastNumber + 1).toString().padStart(4, '0')}`;
+    }, [invoices]);
+     const nextPurchaseOrderNumber = useMemo(() => {
+        const lastNumber = purchaseOrders.reduce((max, po) => {
+            const num = parseInt(po.orderNumber.split('-')[1], 10);
+            return num > max ? num : max;
+        }, 0);
+        return `CMD-${(lastNumber + 1).toString().padStart(5, '0')}`;
+    }, [purchaseOrders]);
+
+    // Theme toggler
+    const toggleTheme = () => {
+        const newTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(newTheme);
+        document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    };
+
+    useEffect(() => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
     }, [theme]);
 
-    const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
 
-    // CRUD Handlers
+    // Handlers
+    const handleSaveQuote = (quote: Quote) => {
+        setQuotes(prev => {
+            const index = prev.findIndex(q => q.id === quote.id);
+            if (index > -1) {
+                const newQuotes = [...prev];
+                newQuotes[index] = quote;
+                return newQuotes;
+            }
+            return [...prev, quote];
+        });
+        setIsQuoteFormOpen(false);
+        setQuoteToEdit(null);
+    };
+
     const handleSaveClient = (client: Client) => {
         setClients(prev => {
             const index = prev.findIndex(c => c.id === client.id);
@@ -112,401 +164,580 @@ const App: React.FC = () => {
             return [...prev, client];
         });
         setIsClientFormOpen(false);
+        setClientToEdit(null);
+    };
+
+    const handleConfirmDelete = () => {
+        if (!itemToDelete) return;
+
+        switch (itemToDelete.type) {
+            case 'quote':
+                setQuotes(prev => prev.filter(q => q.id !== itemToDelete.id));
+                break;
+            case 'client':
+                setClients(prev => prev.filter(c => c.id !== itemToDelete.id));
+                break;
+            case 'template':
+                setInterventionTemplates(prev => prev.filter(t => t.id !== itemToDelete.id));
+                break;
+            case 'technician':
+                setTechnicians(prev => prev.filter(t => t.id !== itemToDelete.id));
+                break;
+            case 'part':
+                setParts(prev => prev.filter(p => p.id !== itemToDelete.id));
+                break;
+            case 'repair_order':
+                setRepairOrders(prev => prev.filter(ro => ro.id !== itemToDelete.id));
+                break;
+            case 'invoice':
+                setInvoices(prev => prev.filter(inv => inv.id !== itemToDelete.id));
+                break;
+            case 'purchase_order':
+                setPurchaseOrders(prev => prev.filter(po => po.id !== itemToDelete.id));
+                break;
+        }
+
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
+    };
+
+    const createDeleteHandler = (type: string, nameAccessor: (item: any) => string) => (id: string) => {
+        let item;
+        switch(type) {
+            case 'quote': item = quotes.find(i => i.id === id); break;
+            case 'client': item = clients.find(i => i.id === id); break;
+            case 'template': item = interventionTemplates.find(i => i.id === id); break;
+            case 'technician': item = technicians.find(i => i.id === id); break;
+            case 'part': item = parts.find(i => i.id === id); break;
+            case 'repair_order': item = repairOrders.find(i => i.id === id); break;
+            case 'invoice': item = invoices.find(i => i.id === id); break;
+            case 'purchase_order': item = purchaseOrders.find(i => i.id === id); break;
+        }
+        if (item) {
+            setItemToDelete({ id, type, name: nameAccessor(item) });
+            setIsDeleteModalOpen(true);
+        }
+    };
+
+    const handleDeleteQuote = createDeleteHandler('quote', (q: Quote) => q.quoteNumber);
+    const handleDeleteClient = createDeleteHandler('client', (c: Client) => c.name);
+    const handleDeleteTemplate = createDeleteHandler('template', (t: InterventionTemplate) => t.name);
+    const handleDeleteTechnician = createDeleteHandler('technician', (t: Technician) => t.name);
+    const handleDeletePart = createDeleteHandler('part', (p: Part) => p.name);
+    const handleDeleteRepairOrder = createDeleteHandler('repair_order', (ro: RepairOrder) => ro.quote.quoteNumber.replace('DEV', 'FICHE'));
+    const handleDeleteInvoice = createDeleteHandler('invoice', (inv: Invoice) => inv.invoiceNumber);
+    const handleDeletePurchaseOrder = createDeleteHandler('purchase_order', (po: PurchaseOrder) => po.orderNumber);
+
+
+    const handleStatusChange = (status: QuoteStatus) => {
+        if (!quoteForStatusChange) return;
+        setQuotes(prev => prev.map(q => q.id === quoteForStatusChange.id ? { ...q, status, statusHistory: [...q.statusHistory, { status, date: new Date().toISOString() }] } : q));
+        setIsStatusModalOpen(false);
+        setQuoteForStatusChange(null);
     };
     
-    const handleSaveQuote = (quote: Quote) => {
-        setQuotes(prev => {
-            const index = prev.findIndex(q => q.id === quote.id);
-            if(index > -1) {
-                const newQuotes = [...prev];
-                newQuotes[index] = quote;
-                return newQuotes;
+    const handleSaveAppointment = (appointment: Omit<Appointment, 'id'>) => {
+        const newAppointment = { ...appointment, id: crypto.randomUUID() };
+        setAppointments(prev => [...prev, newAppointment]);
+        setIsAppointmentFormOpen(false);
+        setQuoteToSchedule(null);
+    };
+    
+    const handleCreateRepairOrder = (quoteId: string) => {
+        const quote = quotes.find(q => q.id === quoteId);
+        if(!quote) return;
+        const newRepairOrder: RepairOrder = {
+            id: crypto.randomUUID(),
+            quote,
+            status: 'scheduled',
+        };
+        setRepairOrders(prev => [...prev, newRepairOrder]);
+        setQuotes(prev => prev.map(q => q.id === quoteId ? {...q, isConvertedToRepairOrder: true} : q));
+    };
+
+    const handleUpdateRepairOrderStatus = (orderId: string, status: RepairOrderStatus) => {
+        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, status} : ro));
+    };
+
+    const handleSaveInspection = (report: VehicleInspectionReport) => {
+        if (!orderForInspection) return;
+        setRepairOrders(prev => prev.map(ro => ro.id === orderForInspection.id ? {...ro, inspectionReport: report, status: 'diagnosis_complete'} : ro));
+        setIsInspectionFormOpen(false);
+        setOrderForInspection(null);
+    };
+    
+    const handleGenerateInvoice = (orderId: string) => {
+        const order = repairOrders.find(ro => ro.id === orderId);
+        if(!order) return;
+        
+        const client = clients.find(c => c.id === order.quote.clientId);
+        if (client) {
+            const vehicle = client.vehicles.find(v => v.id === order.quote.vehicleId);
+            if(vehicle && order.mileage) {
+                const serviceHistoryEntry: VehicleServiceHistory = {
+                    id: crypto.randomUUID(),
+                    date: new Date().toISOString(),
+                    mileage: order.mileage,
+                    description: order.quote.laborItems.map(l => l.description).join('; '),
+                    referenceId: order.id,
+                };
+                const updatedClient = {
+                    ...client,
+                    vehicles: client.vehicles.map(v => v.id === vehicle.id ? {...v, serviceHistory: [...v.serviceHistory, serviceHistoryEntry]} : v)
+                };
+                setClients(prev => prev.map(c => c.id === client.id ? updatedClient : c));
             }
-            return [...prev, quote];
-        });
-        setIsQuoteFormOpen(false);
+        }
+        
+        const newInvoice: Invoice = {
+            id: crypto.randomUUID(),
+            invoiceNumber: nextInvoiceNumber,
+            quote: order.quote,
+            date: new Date().toISOString(),
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'draft',
+        };
+
+        setInvoices(prev => [...prev, newInvoice]);
+        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, status: 'invoiced'} : ro));
+    };
+
+    const handleMarkInvoiceAsPaid = (details: PaymentDetails) => {
+        if (!invoiceForPayment) return;
+        const updatedInvoice = { ...invoiceForPayment, status: 'paid' as const, paymentDetails: details };
+        setInvoices(prev => prev.map(inv => inv.id === invoiceForPayment.id ? updatedInvoice : inv));
+
+        const total = updatedInvoice.quote.laborItems.reduce((acc, l) => acc + (l.hours * l.rate) + l.partItems.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0), 0) * (1 + updatedInvoice.quote.taxRate/100);
+        const newTransaction: FinancialTransaction = {
+            id: crypto.randomUUID(),
+            date: details.date,
+            type: 'revenue',
+            amount: total,
+            description: `Paiement facture ${updatedInvoice.invoiceNumber}`,
+            referenceId: updatedInvoice.id,
+        };
+        setTransactions(prev => [...prev, newTransaction]);
+        
+        setIsPaymentFormOpen(false);
+        setInvoiceForPayment(null);
+        setInvoiceToView(updatedInvoice);
     };
 
     const handleSaveTemplate = (template: InterventionTemplate) => {
         setInterventionTemplates(prev => {
             const index = prev.findIndex(t => t.id === template.id);
-            if (index > -1) {
-                const newTemplates = [...prev];
-                newTemplates[index] = template;
-                return newTemplates;
-            }
-            return [...prev, template];
+            return index > -1 ? prev.map((t, i) => i === index ? template : t) : [...prev, template];
         });
         setIsTemplateFormOpen(false);
-    };
-    
-    const handleSavePart = (part: Part) => {
-        setParts(prev => {
-            const index = prev.findIndex(p => p.id === part.id);
-            if(index > -1) {
-                const newParts = [...prev];
-                newParts[index] = part;
-                return newParts;
-            }
-            return [...prev, part];
-        });
-        setIsPartFormOpen(false);
-    };
-
-    const handleSaveAppointment = (appointment: Omit<Appointment, 'id'>) => {
-        const newAppointment: Appointment = { ...appointment, id: crypto.randomUUID() };
-        setAppointments(prev => [...prev, newAppointment]);
-        setIsAppointmentFormOpen(false);
+        setTemplateToEdit(null);
     };
 
     const handleSaveTechnician = (technician: Technician) => {
         setTechnicians(prev => {
             const index = prev.findIndex(t => t.id === technician.id);
-            if(index > -1) {
-                const newTechs = [...prev];
-                newTechs[index] = technician;
-                return newTechs;
-            }
-            return [...prev, technician];
+            return index > -1 ? prev.map((t, i) => i === index ? technician : t) : [...prev, technician];
         });
         setIsTechnicianFormOpen(false);
+        setTechnicianToEdit(null);
     };
     
+    const handleSavePart = (part: Part) => {
+        setParts(prev => {
+            const index = prev.findIndex(p => p.id === part.id);
+            return index > -1 ? prev.map((p, i) => i === index ? part : p) : [...prev, part];
+        });
+        setIsPartFormOpen(false);
+        setPartToEdit(null);
+    };
+
     const handleSavePurchaseOrder = (order: PurchaseOrder) => {
         setPurchaseOrders(prev => {
             const index = prev.findIndex(po => po.id === order.id);
-            if (index > -1) {
-                const newOrders = [...prev];
-                newOrders[index] = order;
-                return newOrders;
-            }
-            return [...prev, order];
+            return index > -1 ? prev.map((po, i) => i === index ? order : po) : [...prev, order];
         });
-        setIsPurchaseOrderFormOpen(false);
+        setIsPOFormOpen(false);
+        setPOToEdit(null);
     };
 
-    const handleReceivePurchaseOrder = (orderId: string) => {
+    const handleReceivePO = (orderId: string) => {
         const order = purchaseOrders.find(po => po.id === orderId);
-        if(!order || order.status !== 'ordered') return;
-
-        setParts(currentParts => {
-            const newParts = [...currentParts];
+        if(!order) return;
+        setPurchaseOrders(prev => prev.map(po => po.id === orderId ? {...po, status: 'received'} : po));
+        setParts(prevParts => {
+            const newParts = [...prevParts];
             order.items.forEach(item => {
                 const partIndex = newParts.findIndex(p => p.id === item.partId);
-                if (partIndex > -1) {
+                if(partIndex > -1) {
                     newParts[partIndex].stock += item.quantity;
                 }
             });
             return newParts;
         });
-
-        setPurchaseOrders(currentOrders => 
-            currentOrders.map(po => po.id === orderId ? { ...po, status: 'received' } : po)
-        );
     };
-    
-    const handleSavePurchaseOrderPayment = (details: {date: string}) => {
-        if(!purchaseOrderForPayment) return;
-        
-        const updatedOrder = { ...purchaseOrderForPayment, isPaid: true, paymentDate: details.date, status: 'received' as const };
-        
-        setPurchaseOrders(prev => prev.map(po => po.id === purchaseOrderForPayment.id ? updatedOrder : po));
 
-        const total = updatedOrder.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const handleMarkPOAsPaid = (paymentDetails: {date: string}) => {
+        if (!poForPayment) return;
+        const updatedPO = { ...poForPayment, isPaid: true, paymentDate: paymentDetails.date };
+        setPurchaseOrders(prev => prev.map(po => po.id === poForPayment.id ? updatedPO : po));
+        
+        const total = updatedPO.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
         const newTransaction: FinancialTransaction = {
             id: crypto.randomUUID(),
-            date: details.date,
+            date: paymentDetails.date,
             type: 'expense',
             amount: -total,
-            description: `Paiement commande ${updatedOrder.orderNumber} (${updatedOrder.supplier})`,
-            referenceId: updatedOrder.id,
+            description: `Paiement commande ${updatedPO.orderNumber} (${updatedPO.supplier})`,
+            referenceId: updatedPO.id,
         };
         setTransactions(prev => [...prev, newTransaction]);
-
-        setPurchaseOrderForPayment(null);
+        
+        setIsPOPaymentFormOpen(false);
+        setPOForPayment(null);
     };
-
-    const handleUpdateRepairStatus = (orderId: string, status: RepairOrder['status']) => {
-        const order = repairOrders.find(ro => ro.id === orderId);
-        if(!order) return;
-
-        // Déstockage
-        if ((status === 'completed' || status === 'invoiced') && !['completed', 'invoiced'].includes(order.status)) {
-             setParts(currentParts => {
-                const newParts = [...currentParts];
-                order.quote.laborItems.forEach(labor => {
-                    labor.partItems.forEach(partItem => {
-                        const partIndex = newParts.findIndex(p => p.id === partItem.partId);
-                        if(partIndex > -1) {
-                            newParts[partIndex].stock -= partItem.quantity;
-                        }
-                    });
-                });
-                return newParts;
-            });
-        }
-        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, status} : ro));
-    };
-
-    // Derived values
-    const nextQuoteNumber = useMemo(() => {
-        const lastNumber = quotes.reduce((max, q) => {
-            const num = parseInt(q.quoteNumber.replace('DEV-', ''), 10);
-            return num > max ? num : max;
-        }, 0);
-        return `DEV-${(lastNumber + 1).toString().padStart(5, '0')}`;
-    }, [quotes]);
-
-    const nextPurchaseOrderNumber = useMemo(() => {
-        const lastNumber = purchaseOrders.reduce((max, po) => {
-            const num = parseInt(po.orderNumber.replace('CMD-', ''), 10);
-            return num > max ? num : max;
-        }, 0);
-        return `CMD-${(lastNumber + 1).toString().padStart(5, '0')}`;
-    }, [purchaseOrders]);
     
-     const navConfig = {
-        main: [{ id: 'dashboard', title: 'Tableau de bord', icon: ChartBarIcon, view: 'dashboard' as View }],
-        groups: [
-            { id: 'atelier', title: 'Atelier', icon: WrenchIcon, items: [
-                { id: 'scheduler', title: "Planning", icon: CalendarIcon, view: 'scheduler' as View },
-                { id: 'repairs', title: "Fiches Réparation", icon: WrenchIcon, view: 'repairs' as View },
-                { id: 'technicians', title: "Techniciens", icon: UserCircleIcon, view: 'technicians' as View },
-            ]},
-            { id: 'gestionStock', title: 'Gestion Stock', icon: BoxIcon, items: [
-                // FIX: Use 'stock' for the view type to match the `View` type definition.
-                 { id: 'stock', title: "Stock", icon: BoxIcon, view: 'stock' as View },
-                 { id: 'purchases', title: "Commandes", icon: TruckIcon, view: 'purchases' as View },
-            ]},
-            { id: 'gestionClient', title: 'Gestion Client', icon: UsersIcon, items: [
-                { id: 'clients', title: "Clients", icon: UsersIcon, view: 'clients' as View },
-                { id: 'quotes', title: "Devis", icon: FileTextIcon, view: 'quotes' as View },
-                { id: 'invoices', title: "Factures", icon: ReceiptTaxIcon, view: 'invoices' as View },
-            ]},
-            { id: 'catalogue', title: 'Catalogue', icon: BookOpenIcon, items: [
-                { id: 'templates', title: "Interventions", icon: WrenchScrewdriverIcon, view: 'templates' as View },
-            ]},
-            { id: 'accounting', title: "Comptabilité", icon: WalletIcon, items: [
-                 { id: 'accounting_dashboard', title: "Grand Livre", icon: WalletIcon, view: 'accounting' as View },
-            ]}
-        ]
+    const handleAssignTechnician = (orderId: string, technicianId: string) => {
+        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, technicianId} : ro));
     };
 
-    // View rendering logic
+    const handleSaveRepairOrderNotes = (orderId: string, notes: string) => {
+        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, notes} : ro));
+    };
+    
+    const handleSaveRepairOrderMileage = (orderId: string, mileage: number) => {
+        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, mileage} : ro));
+    };
+    
+
     const renderView = () => {
-        switch (view) {
-            case 'clients': return <ClientList clients={clients} onEdit={client => { setEditingClient(client); setIsClientFormOpen(true); }} onDelete={id => setClientToDelete(id)} />;
-            case 'templates': return <InterventionTemplateList templates={interventionTemplates} onEdit={t => { setEditingTemplate(t); setIsTemplateFormOpen(true); }} onDelete={id => setTemplateToDelete(id)} />;
-            // FIX: Use 'stock' case to match the `View` type.
-            case 'stock': return <PartList parts={parts} onEdit={p => { setEditingPart(p); setIsPartFormOpen(true); }} onDelete={id => setPartToDelete(id)} onAdd={() => {setEditingPart(null); setIsPartFormOpen(true);}} onOrder={(part) => {setEditingPurchaseOrder({id: '', orderNumber: '', supplier: part.supplier, date: new Date().toISOString(), status: 'draft', items: [{id: crypto.randomUUID(), partId: part.id, quantity: 10, unitPrice: part.purchasePrice}]}); setIsPurchaseOrderFormOpen(true)}} />;
-            case 'repairs': return <RepairOrderList repairOrders={repairOrders} clients={clients} technicians={technicians} onView={setRepairOrderToView} onDelete={id => setRepairOrderToDelete(id)} />;
-            case 'scheduler': return <Scheduler appointments={appointments} clients={clients} onAppointmentClick={app => {
-                const quote = quotes.find(q => q.id === app.quoteId);
-                if (quote) setQuoteToView(quote);
-            }} />;
-            case 'invoices': return <InvoiceList invoices={invoices} clients={clients} onView={setInvoiceToView} onDelete={id => setInvoiceToDelete(id)} onMarkAsPaid={setInvoiceForPayment} />;
-            case 'technicians': return <TechnicianList technicians={technicians} repairOrders={repairOrders} onEdit={t => { setEditingTechnician(t); setIsTechnicianFormOpen(true); }} onDelete={id => setTechnicianToDelete(id)} />;
-            case 'purchases': return <PurchaseOrderList orders={purchaseOrders} onEdit={order => { setEditingPurchaseOrder(order); setIsPurchaseOrderFormOpen(true); }} onDelete={id => setPurchaseOrderToDelete(id)} onReceive={handleReceivePurchaseOrder} onMarkAsPaid={setPurchaseOrderForPayment} />;
-            case 'accounting': return <AccountingDashboard invoices={invoices} purchaseOrders={purchaseOrders} quotes={quotes} />;
-            case 'dashboard': return <ReportsDashboard quotes={quotes} repairOrders={repairOrders} invoices={invoices} clients={clients} />;
+        switch (activeView) {
             case 'quotes':
-            default: return <QuoteList quotes={quotes} clients={clients} appointments={appointments} onEdit={q => { setEditingQuote(q); setIsQuoteFormOpen(true); }} onDelete={id => setQuoteToDelete(id)} onView={setQuoteToView} onChangeStatus={id => setQuoteForStatusChange(quotes.find(q => q.id === id) || null)} onSchedule={q => { setQuoteToSchedule(q); setIsAppointmentFormOpen(true); }} onCreateRepairOrder={(quoteId) => {
-                const quote = quotes.find(q => q.id === quoteId);
-                if (!quote) return;
-                const newRepairOrder: RepairOrder = { id: crypto.randomUUID(), quote: { ...quote }, status: 'scheduled' };
-                setRepairOrders(prev => [...prev, newRepairOrder]);
-                setQuotes(prev => prev.map(q => q.id === quoteId ? {...q, isConvertedToRepairOrder: true} : q));
-                setView('repairs');
-                setRepairOrderToView(newRepairOrder);
-            }}/>;
+                return <QuoteList
+                    quotes={quotes}
+                    clients={clients}
+                    appointments={appointments}
+                    onEdit={quote => { setQuoteToEdit(quote); setIsQuoteFormOpen(true); }}
+                    onDelete={handleDeleteQuote}
+                    onView={quote => setQuoteToView(quote)}
+                    onChangeStatus={quoteId => { setQuoteForStatusChange(quotes.find(q => q.id === quoteId) || null); setIsStatusModalOpen(true); }}
+                    onSchedule={quote => { setQuoteToSchedule(quote); setIsAppointmentFormOpen(true); }}
+                    onCreateRepairOrder={handleCreateRepairOrder}
+                />;
+            case 'clients':
+                return <ClientList 
+                    clients={clients} 
+                    onEdit={client => { setClientToEdit(client); setIsClientFormOpen(true); }} 
+                    onDelete={handleDeleteClient}
+                />;
+            case 'scheduler':
+                return <Scheduler 
+                    appointments={appointments} 
+                    clients={clients} 
+                    onAppointmentClick={app => setQuoteToView(quotes.find(q => q.id === app.quoteId) || null)}
+                />;
+            case 'repair_orders':
+                return <RepairOrderList 
+                    repairOrders={repairOrders} 
+                    clients={clients} 
+                    technicians={technicians}
+                    onView={order => setOrderToView(order)} 
+                    onDelete={handleDeleteRepairOrder}
+                />;
+            case 'invoices':
+                return <InvoiceList
+                    invoices={invoices}
+                    clients={clients}
+                    onView={invoice => setInvoiceToView(invoice)}
+                    onDelete={handleDeleteInvoice}
+                    onMarkAsPaid={invoice => { setInvoiceForPayment(invoice); setIsPaymentFormOpen(true); }}
+                />;
+            case 'templates':
+                return <InterventionTemplateList 
+                    templates={interventionTemplates}
+                    onEdit={template => { setTemplateToEdit(template); setIsTemplateFormOpen(true); }}
+                    onDelete={handleDeleteTemplate}
+                />;
+            case 'technicians':
+                return <TechnicianList 
+                    technicians={technicians} 
+                    repairOrders={repairOrders}
+                    onEdit={tech => { setTechnicianToEdit(tech); setIsTechnicianFormOpen(true); }}
+                    onDelete={handleDeleteTechnician}
+                />;
+            case 'parts':
+                return <PartList 
+                    parts={parts}
+                    onAdd={() => setIsPartFormOpen(true)}
+                    onEdit={part => { setPartToEdit(part); setIsPartFormOpen(true); }}
+                    onDelete={handleDeletePart}
+                    onOrder={part => { 
+                        setPOToEdit({
+                            id: crypto.randomUUID(), 
+                            orderNumber: nextPurchaseOrderNumber, 
+                            supplier: part.supplier, 
+                            date: new Date().toISOString(), 
+                            status: 'draft', 
+                            items: [{ id: crypto.randomUUID(), partId: part.id, quantity: 10, unitPrice: part.purchasePrice }]
+                        });
+                        setIsPOFormOpen(true);
+                    }}
+                />;
+            case 'purchase_orders':
+                return <PurchaseOrderList
+                    orders={purchaseOrders}
+                    onEdit={order => { setPOToEdit(order); setIsPOFormOpen(true); }}
+                    onDelete={handleDeletePurchaseOrder}
+                    onReceive={handleReceivePO}
+                    onMarkAsPaid={order => { setPOForPayment(order); setIsPOPaymentFormOpen(true); }}
+                />;
+            case 'reports':
+                return <ReportsDashboard 
+                    quotes={quotes}
+                    repairOrders={repairOrders}
+                    invoices={invoices}
+                    clients={clients}
+                    purchaseOrders={purchaseOrders}
+                    technicians={technicians}
+                />;
+            case 'accounting':
+                return <AccountingDashboard invoices={invoices} purchaseOrders={purchaseOrders} />;
+            case 'settings':
+                return <SettingsComponent settings={settings} onSave={setSettings} />;
+            default:
+                return <div>Selectionnez une vue</div>;
         }
     };
     
-    const viewConfig: {[key in View]?: {title: string, action?: () => void, actionLabel?: string}} = {
-        dashboard: { title: "Tableau de bord" },
-        quotes: { title: "Devis", action: () => { setEditingQuote(null); setIsQuoteFormOpen(true); }, actionLabel: "Nouveau devis" },
-        clients: { title: "Clients", action: () => { setEditingClient(null); setIsClientFormOpen(true); }, actionLabel: "Ajouter un client" },
-        repairs: { title: "Fiches de réparation" },
-        invoices: { title: "Factures" },
-        scheduler: { title: "Planning" },
-        purchases: { title: "Commandes", action: () => { setEditingPurchaseOrder(null); setIsPurchaseOrderFormOpen(true); }, actionLabel: "Nouvelle commande" },
-        // FIX: Use 'stock' key to match the `View` type.
-        stock: { title: "Stock" },
-        templates: { title: "Catalogue", action: () => { setEditingTemplate(null); setIsTemplateFormOpen(true); }, actionLabel: "Nouvelle intervention" },
-        technicians: { title: "Techniciens", action: () => { setEditingTechnician(null); setIsTechnicianFormOpen(true); }, actionLabel: "Ajouter un technicien" },
-        accounting: { title: "Comptabilité" },
-    };
-    
+    const sidebarGroups = [
+        { 
+            title: 'Atelier', 
+            icon: WrenchIcon,
+            items: [
+                { view: 'scheduler', label: 'Planning', icon: CalendarIcon },
+                { view: 'quotes', label: 'Devis', icon: FileTextIcon },
+                { view: 'repair_orders', label: 'Fiches Réparation', icon: WrenchIcon },
+                { view: 'invoices', label: 'Factures', icon: ReceiptTaxIcon },
+            ]
+        },
+        {
+            title: 'Gestion',
+            icon: BookOpenIcon,
+            items: [
+                { view: 'clients', label: 'Clients', icon: UsersIcon },
+                { view: 'parts', label: 'Pièces', icon: BoxIcon },
+                { view: 'purchase_orders', label: 'Commandes', icon: ShoppingCartIcon },
+                { view: 'templates', label: 'Catalogue', icon: BookOpenIcon },
+                { view: 'technicians', label: 'Techniciens', icon: UsersIcon },
+            ]
+        },
+        {
+            title: 'Analyse',
+            icon: ChartBarIcon,
+            items: [
+                { view: 'reports', label: 'Tableau de bord', icon: ChartBarIcon },
+                { view: 'accounting', label: 'Analyse Financière', icon: WalletIcon },
+            ]
+        }
+    ];
+
+    const currentClient = quoteToView ? clients.find(c => c.id === quoteToView.clientId) : null;
+    const currentVehicle = currentClient && quoteToView ? currentClient.vehicles.find(v => v.id === quoteToView.vehicleId) : null;
+
+    // Find the active section to keep it open
+    useEffect(() => {
+        const activeGroup = sidebarGroups.find(group => group.items.some(item => item.view === activeView));
+        if (activeGroup) {
+            setOpenSection(activeGroup.title);
+        }
+    }, [activeView]);
 
     return (
-        <div className="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen font-sans">
-            <div className="flex">
-                <nav className="w-64 bg-white dark:bg-gray-800 p-4 shadow-lg flex flex-col h-screen sticky top-0">
-                    <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-8">GaragePro</h1>
-                    <ul className="space-y-1 flex-grow overflow-y-auto">
-                        {navConfig.main.map(item => (
-                             <li key={item.id}>
-                                <button onClick={() => setView(item.view)} className={`w-full flex items-center gap-3 p-2 rounded-md text-left font-semibold transition-colors ${view === item.view ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                                    <item.icon className="h-5 w-5"/>
-                                    {item.title}
-                                </button>
-                            </li>
-                        ))}
-                        {navConfig.groups.map(group => (
-                            <li key={group.id}>
-                                <button onClick={() => setOpenNavs(prev => prev.includes(group.id) ? prev.filter(id => id !== group.id) : [...prev, group.id])} className="w-full flex justify-between items-center gap-3 p-2 rounded-md text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700">
-                                    <div className="flex items-center gap-3">
-                                        <group.icon className="h-5 w-5"/>
-                                        {group.title}
-                                    </div>
-                                    <ChevronDownIcon className={`h-5 w-5 transition-transform ${openNavs.includes(group.id) ? 'rotate-180' : ''}`}/>
-                                </button>
-                                {openNavs.includes(group.id) && (
-                                    <ul className="pl-6 pt-1 space-y-1">
-                                        {group.items.map(item => (
-                                             <li key={item.id}>
-                                                <button onClick={() => setView(item.view)} className={`w-full flex items-center gap-3 p-2 rounded-md text-left text-sm font-semibold transition-colors ${view === item.view ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                                                    <item.icon className="h-5 w-5"/>
-                                                    {item.title}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <button onClick={toggleTheme} className="w-full flex items-center gap-3 p-2 rounded-md text-left font-semibold hover:bg-gray-100 dark:hover:bg-gray-700">
-                            {theme === 'light' ? <MoonIcon className="h-5 w-5"/> : <SunIcon className="h-5 w-5"/>}
-                            {theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}
-                        </button>
-                    </div>
-                </nav>
+        <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+            <aside className="w-64 bg-white dark:bg-gray-800 p-4 flex flex-col shadow-lg overflow-y-auto">
+                <div className="flex items-center justify-center h-16 mb-4">
+                    {settings.logo ? (
+                        <img src={settings.logo} alt="Logo" className="h-12 w-auto object-contain"/>
+                    ) : (
+                         <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-400 text-center">{settings.garageName}</h1>
+                    )}
+                </div>
 
-                <main className="flex-1 p-8">
-                    <header className="flex justify-between items-center mb-6">
-                        <h2 className="text-3xl font-bold">{viewConfig[view]?.title}</h2>
-                        {viewConfig[view]?.action && (
-                            <button onClick={viewConfig[view]?.action} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors flex items-center gap-2">
-                                <PlusIcon className="h-5 w-5"/>
-                                {viewConfig[view]?.actionLabel}
+                <nav className="flex-grow space-y-2">
+                    {sidebarGroups.map(group => (
+                        <div key={group.title}>
+                             <button onClick={() => setOpenSection(openSection === group.title ? '' : group.title)} className="w-full text-left flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <div className="flex items-center gap-3">
+                                    <group.icon className="h-5 w-5"/>
+                                    <span>{group.title}</span>
+                                </div>
+                                <ChevronDownIcon className={`h-5 w-5 transition-transform ${openSection === group.title ? 'rotate-180' : ''}`} />
                             </button>
-                        )}
-                    </header>
-                    {renderView()}
-                </main>
-            </div>
+                            {openSection === group.title && (
+                                <ul className="pl-4 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-700 ml-4">
+                                    {group.items.map(item => (
+                                        <li key={item.view}>
+                                            <button
+                                                onClick={() => setActiveView(item.view as View)}
+                                                className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                                                    activeView === item.view ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                            >
+                                                <item.icon className="h-5 w-5" />
+                                                {item.label}
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    ))}
+                     <div>
+                        <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors mt-2 ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                            <CogIcon className="h-5 w-5" />
+                            Paramètres
+                        </button>
+                     </div>
+                </nav>
+                 <div className="mt-auto pt-4">
+                    <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
+                        {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
+                        <span>{theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}</span>
+                    </button>
+                </div>
+            </aside>
+            <main className="flex-1 p-6 overflow-y-auto">
+                 <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">{activeView.replace(/_/g, ' ')}</h2>
+                    {activeView === 'quotes' && <button onClick={() => { setQuoteToEdit(null); setIsQuoteFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouveau Devis</button>}
+                    {activeView === 'clients' && <button onClick={() => { setClientToEdit(null); setIsClientFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Ajouter un Client</button>}
+                    {activeView === 'templates' && <button onClick={() => { setTemplateToEdit(null); setIsTemplateFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouvelle Intervention</button>}
+                    {activeView === 'technicians' && <button onClick={() => { setTechnicianToEdit(null); setIsTechnicianFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Ajouter un Technicien</button>}
+                    {activeView === 'purchase_orders' && <button onClick={() => { setPOToEdit(null); setIsPOFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouvelle Commande</button>}
+                </div>
+                {renderView()}
+            </main>
 
             {/* Modals */}
-            <ClientForm isOpen={isClientFormOpen} onClose={() => setIsClientFormOpen(false)} onSave={handleSaveClient} existingClient={editingClient}/>
-            <ConfirmationModal isOpen={!!clientToDelete} onClose={() => setClientToDelete(null)} onConfirm={() => { setClients(prev => prev.filter(c => c.id !== clientToDelete)); setClientToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer ce client et tous ses véhicules ? Cette action est irréversible.</p>
-            </ConfirmationModal>
-
-            <QuoteForm isOpen={isQuoteFormOpen} onClose={() => setIsQuoteFormOpen(false)} onSave={handleSaveQuote} clients={clients} interventionTemplates={interventionTemplates} parts={parts} existingQuote={editingQuote} nextQuoteNumber={nextQuoteNumber}/>
-            <ConfirmationModal isOpen={!!quoteToDelete} onClose={() => setQuoteToDelete(null)} onConfirm={() => { setQuotes(prev => prev.filter(q => q.id !== quoteToDelete)); setQuoteToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer ce devis ?</p>
-            </ConfirmationModal>
-            <Modal isOpen={!!quoteToView} onClose={() => setQuoteToView(null)} title={`Détails du Devis ${quoteToView?.quoteNumber}`}>
-                <QuoteView quote={quoteToView} client={clients.find(c => c.id === quoteToView?.clientId) || null} vehicle={clients.find(c => c.id === quoteToView?.clientId)?.vehicles.find(v => v.id === quoteToView?.vehicleId) || null} appointment={appointments.find(a => a.quoteId === quoteToView?.id)} repairOrder={repairOrders.find(ro => ro.quote.id === quoteToView?.id)} onViewRepairOrder={(order) => { setQuoteToView(null); setRepairOrderToView(order); }} onViewInScheduler={() => { setQuoteToView(null); setView('scheduler'); }}/>
-            </Modal>
-            <StatusChangeModal isOpen={!!quoteForStatusChange} onClose={() => setQuoteForStatusChange(null)} currentStatus={quoteForStatusChange?.status || 'draft'} quoteNumber={quoteForStatusChange?.quoteNumber || ''} onConfirm={(newStatus) => {
-                if(!quoteForStatusChange) return;
-                setQuotes(prev => prev.map(q => q.id === quoteForStatusChange.id ? {...q, status: newStatus, statusHistory: [...q.statusHistory, {status: newStatus, date: new Date().toISOString()}]} : q));
-                setQuoteForStatusChange(null);
-            }}/>
-            
-            <AppointmentForm isOpen={isAppointmentFormOpen} onClose={() => setIsAppointmentFormOpen(false)} onSave={handleSaveAppointment} quoteToSchedule={quoteToSchedule} clients={clients} />
-
-            <InterventionTemplateForm isOpen={isTemplateFormOpen} onClose={() => setIsTemplateFormOpen(false)} onSave={handleSaveTemplate} parts={parts} existingTemplate={editingTemplate} />
-            <ConfirmationModal isOpen={!!templateToDelete} onClose={() => setTemplateToDelete(null)} onConfirm={() => { setInterventionTemplates(prev => prev.filter(t => t.id !== templateToDelete)); setTemplateToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer ce modèle d'intervention ?</p>
-            </ConfirmationModal>
-
-            <PartForm isOpen={isPartFormOpen} onClose={() => setIsPartFormOpen(false)} onSave={handleSavePart} existingPart={editingPart}/>
-            <ConfirmationModal isOpen={!!partToDelete} onClose={() => setPartToDelete(null)} onConfirm={() => { setParts(prev => prev.filter(p => p.id !== partToDelete)); setPartToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer cette pièce ?</p>
-            </ConfirmationModal>
-
-            <Modal isOpen={!!repairOrderToView} onClose={() => setRepairOrderToView(null)} title={`Fiche de réparation ${repairOrderToView?.quote.quoteNumber.replace('DEV', 'FICHE')}`}>
-                <RepairOrderView order={repairOrderToView} client={clients.find(c => c.id === repairOrderToView?.quote.clientId) || null} vehicle={clients.find(c => c.id === repairOrderToView?.quote.clientId)?.vehicles.find(v => v.id === repairOrderToView?.quote.vehicleId) || null} invoice={invoices.find(inv => inv.quote.id === repairOrderToView?.quote.id)} technicians={technicians} 
-                onUpdateStatus={handleUpdateRepairStatus}
-                onAddInspection={id => {setRepairOrderToView(null); setInspectionForRepairOrder(id);}}
-                onGenerateInvoice={id => {
-                    const order = repairOrders.find(ro => ro.id === id);
-                    if(!order) return;
-                    const invoiceNumber = `FAC-${new Date().getFullYear()}-${(invoices.length + 1).toString().padStart(4, '0')}`;
-                    const newInvoice: Invoice = {
-                        id: crypto.randomUUID(),
-                        invoiceNumber,
-                        quote: order.quote,
-                        date: new Date().toISOString(),
-                        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                        status: 'draft',
-                    };
-                    setInvoices(prev => [...prev, newInvoice]);
-                    handleUpdateRepairStatus(id, 'invoiced');
-                    setRepairOrderToView(null);
-                    setInvoiceToView(newInvoice);
-                }}
-                onViewInvoice={(inv) => { setRepairOrderToView(null); setInvoiceToView(inv); }}
-                onAssignTechnician={(orderId, techId) => setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, technicianId: techId || undefined} : ro))}
-                onSaveNotes={(orderId, notes) => setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, notes} : ro))}
+            <QuoteForm
+                isOpen={isQuoteFormOpen}
+                onClose={() => setIsQuoteFormOpen(false)}
+                onSave={handleSaveQuote}
+                clients={clients}
+                interventionTemplates={interventionTemplates}
+                parts={parts}
+                existingQuote={quoteToEdit}
+                nextQuoteNumber={nextQuoteNumber}
+            />
+            <ClientForm 
+                isOpen={isClientFormOpen}
+                onClose={() => setIsClientFormOpen(false)}
+                onSave={handleSaveClient}
+                existingClient={clientToEdit}
+            />
+            <Modal isOpen={!!quoteToView} onClose={() => setQuoteToView(null)} title={`Détails Devis ${quoteToView?.quoteNumber}`}>
+                <QuoteView 
+                    quote={quoteToView}
+                    client={currentClient}
+                    vehicle={currentVehicle}
+                    settings={settings}
+                    appointment={appointments.find(a => a.quoteId === quoteToView?.id)}
+                    repairOrder={repairOrders.find(ro => ro.quote.id === quoteToView?.id)}
+                    onViewRepairOrder={(order) => { setQuoteToView(null); setOrderToView(order); }}
+                    onViewInScheduler={() => { setQuoteToView(null); setActiveView('scheduler'); }}
                 />
             </Modal>
-            <ConfirmationModal isOpen={!!repairOrderToDelete} onClose={() => setRepairOrderToDelete(null)} onConfirm={() => {
-                setRepairOrders(prev => prev.filter(ro => ro.id !== repairOrderToDelete));
-                // Optionally revert quote status
-                const order = repairOrders.find(ro => ro.id === repairOrderToDelete);
-                if (order) {
-                    setQuotes(prev => prev.map(q => q.id === order.quote.id ? { ...q, isConvertedToRepairOrder: false } : q));
-                }
-                setRepairOrderToDelete(null);
-            }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer cette fiche de réparation ? Le devis associé sera de nouveau modifiable.</p>
-            </ConfirmationModal>
-            
-            <VehicleInspectionForm isOpen={!!inspectionForRepairOrder} onClose={() => setInspectionForRepairOrder(null)} repairOrderNumber={repairOrders.find(ro => ro.id === inspectionForRepairOrder)?.quote.quoteNumber.replace('DEV', 'FICHE') || ''} onSave={(report: VehicleInspectionReport) => {
-                setRepairOrders(prev => prev.map(ro => ro.id === inspectionForRepairOrder ? {...ro, inspectionReport: report, status: 'diagnosis_complete'} : ro));
-                setInspectionForRepairOrder(null);
-            }}/>
-
-            <Modal isOpen={!!invoiceToView} onClose={() => setInvoiceToView(null)} title={`Facture ${invoiceToView?.invoiceNumber}`}>
-                <InvoiceView invoice={invoiceToView} client={clients.find(c => c.id === invoiceToView?.quote.clientId) || null} vehicle={clients.find(c => c.id === invoiceToView?.quote.clientId)?.vehicles.find(v => v.id === invoiceToView?.quote.vehicleId) || null} onMarkAsPaid={setInvoiceForPayment} />
+             <Modal isOpen={!!orderToView} onClose={() => setOrderToView(null)} title={`Détails Fiche Réparation ${orderToView?.quote.quoteNumber.replace('DEV', 'FICHE')}`}>
+                <RepairOrderView
+                    order={orderToView}
+                    client={clients.find(c => c.id === orderToView?.quote.clientId) || null}
+                    vehicle={clients.find(c => c.id === orderToView?.quote.clientId)?.vehicles.find(v => v.id === orderToView?.quote.vehicleId) || null}
+                    settings={settings}
+                    technicians={technicians}
+                    onUpdateStatus={handleUpdateRepairOrderStatus}
+                    onAddInspection={orderId => { setOrderForInspection(repairOrders.find(ro => ro.id === orderId) || null); setIsInspectionFormOpen(true); }}
+                    onGenerateInvoice={handleGenerateInvoice}
+                    invoice={invoices.find(i => i.quote.id === orderToView?.quote.id)}
+                    onViewInvoice={invoice => { setOrderToView(null); setInvoiceToView(invoice); }}
+                    onAssignTechnician={handleAssignTechnician}
+                    onSaveNotes={handleSaveRepairOrderNotes}
+                    onSaveMileage={handleSaveRepairOrderMileage}
+                />
             </Modal>
-            <ConfirmationModal isOpen={!!invoiceToDelete} onClose={() => setInvoiceToDelete(null)} onConfirm={() => { setInvoices(prev => prev.filter(i => i.id !== invoiceToDelete)); setInvoiceToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer cette facture ?</p>
+            <Modal isOpen={!!invoiceToView} onClose={() => setInvoiceToView(null)} title={`Détails Facture ${invoiceToView?.invoiceNumber}`}>
+                <InvoiceView
+                    invoice={invoiceToView}
+                    client={clients.find(c => c.id === invoiceToView?.quote.clientId) || null}
+                    vehicle={clients.find(c => c.id === invoiceToView?.quote.clientId)?.vehicles.find(v => v.id === invoiceToView?.quote.vehicleId) || null}
+                    settings={settings}
+                    onMarkAsPaid={invoice => { setInvoiceToView(null); setInvoiceForPayment(invoice); setIsPaymentFormOpen(true); }}
+                />
+            </Modal>
+            <ConfirmationModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={handleConfirmDelete}
+                title={`Confirmer la suppression`}
+            >
+                Êtes-vous sûr de vouloir supprimer "{itemToDelete?.name}" ? Cette action est irréversible.
             </ConfirmationModal>
-            <PaymentForm isOpen={!!invoiceForPayment} onClose={() => setInvoiceForPayment(null)} invoice={invoiceForPayment} onSave={(details: PaymentDetails) => {
-                if(!invoiceForPayment) return;
-                const updatedInvoice = {...invoiceForPayment, status: 'paid' as const, paymentDetails: details};
-                setInvoices(prev => prev.map(inv => inv.id === invoiceForPayment.id ? updatedInvoice : inv));
-
-                const total = updatedInvoice.quote.laborItems.reduce((sum, item) => sum + (item.hours * item.rate) + item.partItems.reduce((pSum, p) => pSum + (p.quantity * p.unitPrice), 0), 0) * (1 + updatedInvoice.quote.taxRate / 100);
-                const newTransaction: FinancialTransaction = {
-                    id: crypto.randomUUID(),
-                    date: details.date,
-                    type: 'revenue',
-                    amount: total,
-                    description: `Paiement facture ${updatedInvoice.invoiceNumber}`,
-                    referenceId: updatedInvoice.id,
-                };
-                setTransactions(prev => [...prev, newTransaction]);
-                setInvoiceForPayment(null);
-            }} />
-
-            <TechnicianForm isOpen={isTechnicianFormOpen} onClose={() => setIsTechnicianFormOpen(false)} onSave={handleSaveTechnician} existingTechnician={editingTechnician} />
-            <ConfirmationModal isOpen={!!technicianToDelete} onClose={() => setTechnicianToDelete(null)} onConfirm={() => { setTechnicians(prev => prev.filter(t => t.id !== technicianToDelete)); setTechnicianToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer ce technicien ?</p>
-            </ConfirmationModal>
-
-            <PurchaseOrderForm isOpen={isPurchaseOrderFormOpen} onClose={() => setIsPurchaseOrderFormOpen(false)} onSave={handleSavePurchaseOrder} parts={parts} existingOrder={editingPurchaseOrder} nextOrderNumber={nextPurchaseOrderNumber}/>
-             <ConfirmationModal isOpen={!!purchaseOrderToDelete} onClose={() => setPurchaseOrderToDelete(null)} onConfirm={() => { setPurchaseOrders(prev => prev.filter(po => po.id !== purchaseOrderToDelete)); setPurchaseOrderToDelete(null); }} title="Confirmer la suppression">
-                <p>Êtes-vous sûr de vouloir supprimer cette commande fournisseur ?</p>
-            </ConfirmationModal>
-            <PurchaseOrderPaymentForm isOpen={!!purchaseOrderForPayment} onClose={() => setPurchaseOrderForPayment(null)} onSave={handleSavePurchaseOrderPayment} order={purchaseOrderForPayment} />
-
+            <StatusChangeModal
+                isOpen={isStatusModalOpen}
+                onClose={() => setIsStatusModalOpen(false)}
+                onConfirm={handleStatusChange}
+                currentStatus={quoteForStatusChange?.status || 'draft'}
+                quoteNumber={quoteForStatusChange?.quoteNumber || ''}
+            />
+            <AppointmentForm
+                isOpen={isAppointmentFormOpen}
+                onClose={() => setIsAppointmentFormOpen(false)}
+                onSave={handleSaveAppointment}
+                quoteToSchedule={quoteToSchedule}
+                clients={clients}
+            />
+             <VehicleInspectionForm
+                isOpen={isInspectionFormOpen}
+                onClose={() => setIsInspectionFormOpen(false)}
+                onSave={handleSaveInspection}
+                repairOrderNumber={orderForInspection?.quote.quoteNumber.replace('DEV', 'FICHE') || ''}
+            />
+             <PaymentForm 
+                isOpen={isPaymentFormOpen}
+                onClose={() => setIsPaymentFormOpen(false)}
+                onSave={handleMarkInvoiceAsPaid}
+                invoice={invoiceForPayment}
+            />
+            <InterventionTemplateForm
+                isOpen={isTemplateFormOpen}
+                onClose={() => { setIsTemplateFormOpen(false); setTemplateToEdit(null); }}
+                onSave={handleSaveTemplate}
+                parts={parts}
+                existingTemplate={templateToEdit}
+            />
+            <TechnicianForm 
+                isOpen={isTechnicianFormOpen}
+                onClose={() => { setIsTechnicianFormOpen(false); setTechnicianToEdit(null); }}
+                onSave={handleSaveTechnician}
+                existingTechnician={technicianToEdit}
+            />
+             <PartForm 
+                isOpen={isPartFormOpen}
+                onClose={() => { setIsPartFormOpen(false); setPartToEdit(null); }}
+                onSave={handleSavePart}
+                existingPart={partToEdit}
+            />
+            <PurchaseOrderForm
+                isOpen={isPOFormOpen}
+                onClose={() => { setIsPOFormOpen(false); setPOToEdit(null); }}
+                onSave={handleSavePurchaseOrder}
+                parts={parts}
+                existingOrder={poToEdit}
+                nextOrderNumber={nextPurchaseOrderNumber}
+            />
+            <PurchaseOrderPaymentForm
+                isOpen={isPOPaymentFormOpen}
+                onClose={() => { setIsPOPaymentFormOpen(false); setPOForPayment(null); }}
+                onSave={handleMarkPOAsPaid}
+                order={poForPayment}
+            />
         </div>
     );
 };

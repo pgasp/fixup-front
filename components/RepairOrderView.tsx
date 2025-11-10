@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { RepairOrder, Client, Vehicle, RepairOrderStatus, Invoice, Technician } from '../types';
+import { RepairOrder, Client, Vehicle, RepairOrderStatus, Invoice, Technician, Settings } from '../types';
 import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, WrenchIcon, CheckCircleIcon, ClipboardCheckIcon, TrashIcon, ClockIcon, DocumentSearchIcon, ReceiptTaxIcon } from './icons';
 
 interface RepairOrderViewProps {
   order: RepairOrder | null;
   client: Client | null;
   vehicle: Vehicle | null;
+  settings: Settings;
   invoice?: Invoice;
   technicians: Technician[];
   onUpdateStatus: (orderId: string, status: RepairOrderStatus) => void;
@@ -14,6 +15,7 @@ interface RepairOrderViewProps {
   onViewInvoice: (invoice: Invoice) => void;
   onAssignTechnician: (orderId: string, technicianId: string) => void;
   onSaveNotes: (orderId: string, notes: string) => void;
+  onSaveMileage: (orderId: string, mileage: number) => void;
 }
 
 const statusConfig: { [key in RepairOrderStatus]: { text: string; icon: React.FC<any>; color: string; } } = {
@@ -38,20 +40,30 @@ const lifecycleSteps: RepairOrderStatus[] = [
     'invoiced',
 ];
 
-const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicle, onUpdateStatus, onAddInspection, onGenerateInvoice, invoice, onViewInvoice, technicians, onAssignTechnician, onSaveNotes }) => {
+const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicle, settings, onUpdateStatus, onAddInspection, onGenerateInvoice, invoice, onViewInvoice, technicians, onAssignTechnician, onSaveNotes, onSaveMileage }) => {
   const [notes, setNotes] = useState(order?.notes || '');
+  const [mileage, setMileage] = useState(order?.mileage || '');
 
   useEffect(() => {
     setNotes(order?.notes || '');
+    setMileage(order?.mileage || '');
   }, [order]);
   
+  const handleSaveNotes = () => {
+      onSaveNotes(order!.id, notes);
+  };
+  
+  const handleSaveMileage = () => {
+    const mileageNumber = parseInt(String(mileage), 10);
+    if (order && !isNaN(mileageNumber)) {
+        onSaveMileage(order.id, mileageNumber);
+    }
+  };
+
+
   if (!order || !client || !vehicle) {
     return <div className="text-center p-8">Chargement des données de la fiche...</div>;
   }
-  
-  const handleSaveNotes = () => {
-      onSaveNotes(order.id, notes);
-  };
 
   const { quote } = order;
   const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
@@ -84,8 +96,13 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">FICHE DE RÉPARATION</h1>
           <p className="font-mono text-gray-600 dark:text-gray-400">{quote.quoteNumber.replace('DEV', 'FICHE')}</p>
         </div>
-        <div className="text-right">
-          <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">GARAGE SUPER PRO</h2>
+        <div className="text-right flex items-start gap-4">
+          <div className="flex-shrink-0">
+              {settings.logo && <img src={settings.logo} alt="Logo" className="h-16 w-auto object-contain"/>}
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">{settings.garageName}</h2>
+          </div>
         </div>
       </header>
       
@@ -136,7 +153,7 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
           </div>
       </section>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 border-b border-gray-200 dark:border-gray-700">
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6 border-b border-gray-200 dark:border-gray-700">
         <div>
             <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><UsersIcon className="h-5 w-5"/> Client</h3>
             <p className="font-bold">{client.name}</p>
@@ -159,6 +176,21 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
                     <option key={tech.id} value={tech.id}>{tech.name}</option>
                 ))}
             </select>
+        </div>
+         <div>
+            <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><CarIcon className="h-5 w-5"/> Kilométrage</h3>
+            <div className="flex items-center gap-2">
+                <input 
+                    type="number"
+                    value={mileage}
+                    onChange={(e) => setMileage(e.target.value)}
+                    placeholder="Km"
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm"
+                />
+                {Number(mileage) !== order.mileage && (
+                    <button onClick={handleSaveMileage} className="px-3 py-2 text-xs bg-green-600 text-white rounded-md hover:bg-green-700">OK</button>
+                )}
+            </div>
         </div>
       </section>
 
