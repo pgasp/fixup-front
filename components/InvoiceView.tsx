@@ -1,0 +1,134 @@
+import React from 'react';
+import { Invoice, Client, Vehicle } from '../types';
+// FIX: Import 'CheckCircleIcon'.
+import { CarIcon, UsersIcon, CalendarIcon, CreditCardIcon, ClockIcon, CheckCircleIcon } from './icons';
+
+interface InvoiceViewProps {
+  invoice: Invoice | null;
+  client: Client | null;
+  vehicle: Vehicle | null;
+  onMarkAsPaid: (invoice: Invoice) => void;
+}
+
+const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, onMarkAsPaid }) => {
+  if (!invoice || !client || !vehicle) {
+    return <div className="text-center p-8">Chargement des données de la facture...</div>;
+  }
+  
+  const { quote } = invoice;
+  const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
+  const taxAmount = subtotal * (quote.taxRate / 100);
+  const total = subtotal + taxAmount;
+
+  return (
+    <div className="text-sm text-gray-800 dark:text-gray-200">
+        <div className="p-4 bg-gray-100 dark:bg-gray-800 flex justify-end gap-2 print:hidden">
+            {invoice.status === 'draft' && (
+                <button onClick={() => onMarkAsPaid(invoice)} className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-md hover:bg-green-700">Marquer comme Payée</button>
+            )}
+            <button onClick={() => window.print()} className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimer</button>
+        </div>
+      <header className="flex justify-between items-start p-6 bg-gray-50 dark:bg-gray-900/50 rounded-t-lg">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">FACTURE</h1>
+          <p className="font-mono text-gray-600 dark:text-gray-400">{invoice.invoiceNumber}</p>
+        </div>
+        <div className="text-right">
+          <h2 className="text-xl font-bold text-blue-600 dark:text-blue-400">GARAGE SUPER PRO</h2>
+          <p>123 Avenue du Moteur</p>
+          <p>75015 Paris</p>
+        </div>
+      </header>
+      
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 border-y border-gray-200 dark:border-gray-700">
+        <div className="md:col-span-1">
+            <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><UsersIcon className="h-5 w-5"/> Facturé à</h3>
+            <p className="font-bold">{client.name}</p>
+            <p>{client.address}</p>
+            <p>{client.postalCode} {client.city}</p>
+        </div>
+         <div className="md:col-span-1">
+            <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><CarIcon className="h-5 w-5"/> Véhicule</h3>
+            <p className="font-bold">{vehicle.make} {vehicle.model}</p>
+            <p>Immatriculation: {vehicle.licensePlate}</p>
+        </div>
+        <div className="md:col-span-1">
+            <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><CalendarIcon className="h-5 w-5"/> Dates</h3>
+            <p>Date de facturation: {new Date(invoice.date).toLocaleDateString()}</p>
+            <p className="font-semibold">Date d'échéance: {new Date(invoice.dueDate).toLocaleDateString()}</p>
+        </div>
+      </section>
+
+       <section className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><CreditCardIcon className="h-5 w-5"/> Statut du Paiement</h3>
+           {invoice.status === 'paid' ? (
+                <div className="text-green-600 dark:text-green-400 font-bold flex items-center gap-2">
+                    <CheckCircleIcon className="h-6 w-6"/>
+                    <span>Payée le {new Date(invoice.paymentDetails!.date).toLocaleDateString()} par {invoice.paymentDetails!.method}</span>
+                </div>
+           ) : (
+                <div className="text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">
+                    <ClockIcon className="h-6 w-6"/>
+                    <span>En attente de paiement</span>
+                </div>
+           )}
+      </section>
+
+      <section className="p-6">
+        <table className="w-full">
+            <thead className="border-b-2 border-gray-300 dark:border-gray-600">
+                <tr className="text-left text-gray-600 dark:text-gray-300">
+                    <th className="py-2 font-semibold">Description</th>
+                    <th className="py-2 font-semibold text-center">Qté</th>
+                    <th className="py-2 font-semibold text-right">Prix U. HT</th>
+                    <th className="py-2 font-semibold text-right">Total HT</th>
+                </tr>
+            </thead>
+            <tbody>
+                {quote.laborItems.map(labor => (
+                    <React.Fragment key={labor.id}>
+                        <tr className="font-semibold bg-gray-50 dark:bg-gray-800/50">
+                            <td className="py-2 pl-2">{labor.description} (Main d'œuvre)</td>
+                            <td className="py-2 text-center">{labor.hours.toFixed(2)}h</td>
+                            <td className="py-2 text-right">{labor.rate.toFixed(2)}€/h</td>
+                            <td className="py-2 text-right">{(labor.hours * labor.rate).toFixed(2)}€</td>
+                        </tr>
+                        {labor.partItems.map(part => (
+                            <tr key={part.id}>
+                                <td className="py-1 pl-8">{part.description}</td>
+                                <td className="py-1 text-center">{part.quantity}</td>
+                                <td className="py-1 text-right">{part.unitPrice.toFixed(2)}€</td>
+                                <td className="py-1 text-right">{(part.quantity * part.unitPrice).toFixed(2)}€</td>
+                            </tr>
+                        ))}
+                    </React.Fragment>
+                ))}
+            </tbody>
+        </table>
+      </section>
+
+      <section className="flex justify-end p-6">
+        <div className="w-full max-w-xs space-y-2">
+            <div className="flex justify-between">
+                <span className="font-semibold text-gray-600 dark:text-gray-300">SOUS-TOTAL HT</span>
+                <span className="font-mono">{subtotal.toFixed(2)}€</span>
+            </div>
+            <div className="flex justify-between">
+                <span className="font-semibold text-gray-600 dark:text-gray-300">TVA ({quote.taxRate}%)</span>
+                <span className="font-mono">{taxAmount.toFixed(2)}€</span>
+            </div>
+             <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-300 dark:border-gray-600">
+                <span className="text-gray-900 dark:text-white">TOTAL TTC</span>
+                <span className="text-blue-600 dark:text-blue-400 font-mono">{total.toFixed(2)}€</span>
+            </div>
+        </div>
+      </section>
+      
+      <footer className="p-6 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+        <p>Merci de régler cette facture avant le {new Date(invoice.dueDate).toLocaleDateString()}.</p>
+      </footer>
+    </div>
+  );
+};
+
+export default InvoiceView;

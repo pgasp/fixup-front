@@ -1,0 +1,5 @@
+{
+  "name": "Garage Management System",
+  "description": "A web application to manage garage operations, including creating customer quotes and scheduling appointments, with AI-powered assistance for service descriptions.",
+  "requestFramePermissions": []
+}

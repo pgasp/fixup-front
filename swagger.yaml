@@ -1,0 +1,435 @@
+openapi: 3.0.0
+info:
+  title: Garage Management System API
+  description: API pour la gestion complète d'un garage automobile, incluant clients, devis, réparations, facturation, stock et commandes.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Serveur de l'API de développement
+
+paths:
+  /clients:
+    get:
+      summary: Récupérer la liste des clients
+      responses:
+        '200':
+          description: Une liste de clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+    post:
+      summary: Créer un nouveau client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientInput'
+      responses:
+        '201':
+          description: Client créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+
+  /clients/{clientId}:
+    get:
+      summary: Récupérer un client par son ID
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails du client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+    put:
+      summary: Mettre à jour un client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientInput'
+      responses:
+        '200':
+          description: Client mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+    delete:
+      summary: Supprimer un client
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Client supprimé
+
+  /quotes:
+    get:
+      summary: Récupérer la liste des devis
+      responses:
+        '200':
+          description: Une liste de devis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Quote'
+    post:
+      summary: Créer un nouveau devis
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteInput'
+      responses:
+        '201':
+          description: Devis créé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+
+  /quotes/{quoteId}:
+    get:
+      summary: Récupérer un devis par son ID
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Détails du devis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+    put:
+      summary: Mettre à jour un devis
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteInput'
+      responses:
+        '200':
+          description: Devis mis à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+    delete:
+      summary: Supprimer un devis
+      parameters:
+        - name: quoteId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Devis supprimé
+
+  /parts:
+    get:
+      summary: Récupérer l'inventaire des pièces
+      responses:
+        '200':
+          description: Liste des pièces en stock
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Part'
+
+  /repair-orders:
+    get:
+      summary: Récupérer les fiches de réparation
+      responses:
+        '200':
+          description: Liste des fiches de réparation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RepairOrder'
+
+  /invoices:
+    get:
+      summary: Récupérer les factures
+      responses:
+        '200':
+          description: Liste des factures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Invoice'
+
+  /purchase-orders:
+    get:
+      summary: Récupérer les commandes fournisseurs
+      responses:
+        '200':
+          description: Liste des commandes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PurchaseOrder'
+
+components:
+  schemas:
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        licensePlate:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        vin:
+          type: string
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+    
+    ClientInput:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        address:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        vehicles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+            
+    PartItem:
+      type: object
+      properties:
+        id:
+          type: string
+        partId:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: number
+        unitPrice:
+          type: number
+
+    LaborTask:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        hours:
+          type: number
+        rate:
+          type: number
+        partItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartItem'
+
+    Quote:
+      type: object
+      properties:
+        id:
+          type: string
+        quoteNumber:
+          type: string
+        clientId:
+          type: string
+        vehicleId:
+          type: string
+        date:
+          type: string
+          format: date-time
+        taxRate:
+          type: number
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        laborItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaborTask'
+    
+    QuoteInput:
+      type: object
+      properties:
+        clientId:
+          type: string
+        vehicleId:
+          type: string
+        date:
+          type: string
+          format: date-time
+        taxRate:
+          type: number
+        laborItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaborTask'
+            
+    Part:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        reference:
+          type: string
+        supplier:
+          type: string
+        stock:
+          type: integer
+        purchasePrice:
+          type: number
+        pricingMethod:
+          type: string
+          enum: [fixed, markup]
+        sellingPrice:
+          type: number
+        markupPercentage:
+          type: number
+
+    RepairOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        quote:
+          $ref: '#/components/schemas/Quote'
+        status:
+          type: string
+          enum: [scheduled, workshop_entry, in_progress, completed, invoiced, cancelled]
+        technicianId:
+          type: string
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+        invoiceNumber:
+          type: string
+        quote:
+          $ref: '#/components/schemas/Quote'
+        date:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, paid, cancelled]
+
+    PurchaseOrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        partId:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+          
+    PurchaseOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+        supplier:
+          type: string
+        date:
+          type: string
+          format: date-time
+        expectedDeliveryDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, ordered, received]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderItem'
