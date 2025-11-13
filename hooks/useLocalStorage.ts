@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+// FIX: Import Dispatch and SetStateAction types from React and update the function
+// signature to use them, resolving the 'Cannot find namespace React' error.
+import { useState, useEffect, Dispatch, SetStateAction } from 'react';
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);

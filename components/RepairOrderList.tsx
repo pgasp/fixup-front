@@ -6,8 +6,10 @@ interface RepairOrderListProps {
   repairOrders: RepairOrder[];
   clients: Client[];
   technicians: Technician[];
+  technicianWorkload: Map<string, number>;
   onView: (order: RepairOrder) => void;
   onDelete: (orderId: string) => void;
+  onAssignTechnician: (orderId: string, technicianId: string) => void;
 }
 
 const statusConfig: { [key in RepairOrderStatus]: { text: string; color: string; icon: React.FC<{className?:string}> } } = {
@@ -23,15 +25,22 @@ const statusConfig: { [key in RepairOrderStatus]: { text: string; color: string;
 };
 
 
-const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients, technicians, onView, onDelete }) => {
+const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients, technicians, technicianWorkload, onView, onDelete, onAssignTechnician }) => {
     
     const [technicianFilter, setTechnicianFilter] = useState<string>('all');
     const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
-    const technicianMap = useMemo(() => new Map(technicians.map(t => [t.id, t])), [technicians]);
 
     const sortedAndFilteredRepairOrders = useMemo(() => {
         return [...repairOrders]
-            .filter(order => technicianFilter === 'all' || order.technicianId === technicianFilter)
+            .filter(order => {
+                if (technicianFilter === 'all') {
+                    return true;
+                }
+                if (technicianFilter === '') { // "Non assignées"
+                    return !order.technicianId;
+                }
+                return order.technicianId === technicianFilter;
+            })
             .sort((a, b) => new Date(b.quote.date).getTime() - new Date(a.quote.date).getTime());
     }, [repairOrders, technicianFilter]);
 
@@ -55,16 +64,30 @@ const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients
                 const Icon = statusConfig[order.status].icon;
                 const client = clientMap.get(order.quote.clientId);
                 const vehicle = client?.vehicles.find(v => v.id === order.quote.vehicleId);
-                const technician = technicianMap.get(order.technicianId || '');
                 return (
                 <li key={order.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="flex-grow">
                         <p className="font-bold text-lg text-gray-900 dark:text-white">{order.quote.quoteNumber.replace('DEV', 'FICHE')}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-300">{order.quote.laborItems.map(l => l.description).join(', ')}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{client?.name} - {vehicle?.make} {vehicle?.model}</p>
-                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                            <UsersIcon className="h-4 w-4"/>
-                            <span>{technician ? technician.name : 'Non assigné'}</span>
+                        <div className="flex items-center gap-2 mt-2">
+                            <UsersIcon className="h-5 w-5 text-gray-400 flex-shrink-0"/>
+                            <select
+                                value={order.technicianId || ''}
+                                onChange={(e) => onAssignTechnician(order.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full max-w-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-1 px-2 text-sm text-gray-800 dark:text-gray-200"
+                            >
+                                <option value="">-- Non assigné --</option>
+                                {technicians.map(tech => {
+                                    const workload = technicianWorkload.get(tech.id) || 0;
+                                    return (
+                                        <option key={tech.id} value={tech.id}>
+                                            {tech.name} ({workload} en cours)
+                                        </option>
+                                    );
+                                })}
+                            </select>
                         </div>
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
-// FIX: Add missing type imports for VehicleInspectionReport and PaymentDetails.
 import { 
     Client, Quote, Appointment, RepairOrder, Invoice, Part, Technician, InterventionTemplate, 
     VehicleServiceHistory, PurchaseOrder, FinancialTransaction, Settings, RepairOrderStatus, QuoteStatus, VehicleInspectionReport, PaymentDetails
@@ -43,7 +42,6 @@ import AccountingDashboard from './components/AccountingDashboard';
 import SettingsComponent from './components/Settings';
 
 // Import icons for sidebar
-// FIX: Add missing icon import for WalletIcon.
 import { 
     FileTextIcon, UsersIcon, CalendarIcon, WrenchIcon, ReceiptTaxIcon, BookOpenIcon, 
     BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon
@@ -123,6 +121,27 @@ const App: React.FC = () => {
         }, 0);
         return `CMD-${(lastNumber + 1).toString().padStart(5, '0')}`;
     }, [purchaseOrders]);
+
+    const technicianWorkload = useMemo(() => {
+        const workloadMap = new Map<string, number>();
+        technicians.forEach(tech => workloadMap.set(tech.id, 0));
+    
+        const activeStatuses: RepairOrderStatus[] = [
+            'scheduled', 
+            'workshop_entry', 
+            'diagnosis_complete', 
+            'in_progress', 
+            'waiting_for_part'
+        ];
+    
+        repairOrders.forEach(order => {
+            if (order.technicianId && activeStatuses.includes(order.status)) {
+                workloadMap.set(order.technicianId, (workloadMap.get(order.technicianId) || 0) + 1);
+            }
+        });
+        return workloadMap;
+    }, [repairOrders, technicians]);
+
 
     // Theme toggler
     const toggleTheme = () => {
@@ -256,12 +275,37 @@ const App: React.FC = () => {
     };
 
     const handleUpdateRepairOrderStatus = (orderId: string, status: RepairOrderStatus) => {
-        setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, status} : ro));
+        // Mettre à jour la liste principale des fiches de réparation
+        setRepairOrders(prevOrders =>
+            prevOrders.map(ro =>
+                ro.id === orderId ? { ...ro, status } : ro
+            )
+        );
+
+        // Si la fiche en cours de visualisation est celle que nous mettons à jour,
+        // mettez également à jour son état pour un rafraîchissement immédiat de la vue.
+        if (orderToView?.id === orderId) {
+            setOrderToView(prevOrder => {
+                if (!prevOrder) return null;
+                return { ...prevOrder, status };
+            });
+        }
     };
 
     const handleSaveInspection = (report: VehicleInspectionReport) => {
         if (!orderForInspection) return;
-        setRepairOrders(prev => prev.map(ro => ro.id === orderForInspection.id ? {...ro, inspectionReport: report, status: 'diagnosis_complete'} : ro));
+        
+        const updatedData = { inspectionReport: report, status: 'diagnosis_complete' as const };
+
+        setRepairOrders(prev => prev.map(ro => ro.id === orderForInspection.id ? {...ro, ...updatedData } : ro));
+        
+        if (orderToView?.id === orderForInspection.id) {
+            setOrderToView(prevOrder => {
+                if (!prevOrder) return null;
+                return { ...prevOrder, ...updatedData };
+            });
+        }
+        
         setIsInspectionFormOpen(false);
         setOrderForInspection(null);
     };
@@ -299,7 +343,17 @@ const App: React.FC = () => {
         };
 
         setInvoices(prev => [...prev, newInvoice]);
+        
+        // Mettre à jour le statut de la fiche de réparation
         setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, status: 'invoiced'} : ro));
+        
+        // Mettre à jour la vue si elle est ouverte
+        if (orderToView?.id === orderId) {
+            setOrderToView(prevOrder => {
+                if (!prevOrder) return null;
+                return { ...prevOrder, status: 'invoiced' };
+            });
+        }
     };
 
     const handleMarkInvoiceAsPaid = (details: PaymentDetails) => {
@@ -455,6 +509,8 @@ const App: React.FC = () => {
                     technicians={technicians}
                     onView={order => setOrderToView(order)} 
                     onDelete={handleDeleteRepairOrder}
+                    onAssignTechnician={handleAssignTechnician}
+                    technicianWorkload={technicianWorkload}
                 />;
             case 'invoices':
                 return <InvoiceList
@@ -666,6 +722,7 @@ const App: React.FC = () => {
                     vehicle={clients.find(c => c.id === orderToView?.quote.clientId)?.vehicles.find(v => v.id === orderToView?.quote.vehicleId) || null}
                     settings={settings}
                     technicians={technicians}
+                    technicianWorkload={technicianWorkload}
                     onUpdateStatus={handleUpdateRepairOrderStatus}
                     onAddInspection={orderId => { setOrderForInspection(repairOrders.find(ro => ro.id === orderId) || null); setIsInspectionFormOpen(true); }}
                     onGenerateInvoice={handleGenerateInvoice}

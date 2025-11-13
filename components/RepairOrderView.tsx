@@ -9,6 +9,7 @@ interface RepairOrderViewProps {
   settings: Settings;
   invoice?: Invoice;
   technicians: Technician[];
+  technicianWorkload: Map<string, number>;
   onUpdateStatus: (orderId: string, status: RepairOrderStatus) => void;
   onAddInspection: (orderId: string) => void;
   onGenerateInvoice: (orderId: string) => void;
@@ -40,7 +41,7 @@ const lifecycleSteps: RepairOrderStatus[] = [
     'invoiced',
 ];
 
-const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicle, settings, onUpdateStatus, onAddInspection, onGenerateInvoice, invoice, onViewInvoice, technicians, onAssignTechnician, onSaveNotes, onSaveMileage }) => {
+const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicle, settings, onUpdateStatus, onAddInspection, onGenerateInvoice, invoice, onViewInvoice, technicians, technicianWorkload, onAssignTechnician, onSaveNotes, onSaveMileage }) => {
   const [notes, setNotes] = useState(order?.notes || '');
   const [mileage, setMileage] = useState(order?.mileage || '');
 
@@ -172,9 +173,14 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
                 className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm"
             >
                 <option value="">Non assigné</option>
-                {technicians.map(tech => (
-                    <option key={tech.id} value={tech.id}>{tech.name}</option>
-                ))}
+                {technicians.map(tech => {
+                    const workload = technicianWorkload.get(tech.id) || 0;
+                    return (
+                        <option key={tech.id} value={tech.id}>
+                            {tech.name} ({workload} en cours)
+                        </option>
+                    );
+                })}
             </select>
         </div>
          <div>

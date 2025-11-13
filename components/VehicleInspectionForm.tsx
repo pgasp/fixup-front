@@ -77,7 +77,27 @@ const VehicleInspectionForm: React.FC<VehicleInspectionFormProps> = ({ isOpen, o
             setIsCameraOpen(true);
         } catch (err) {
             console.error("Error accessing camera:", err);
-            alert("Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.");
+            let message = "Impossible d'accéder à la caméra. Vérifiez les autorisations de votre navigateur.";
+
+            if (err instanceof DOMException) {
+                switch (err.name) {
+                    case 'NotAllowedError':
+                        message = "L'accès à la caméra a été refusé. Pour utiliser cette fonctionnalité, veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur (généralement via l'icône de cadenas dans la barre d'adresse).";
+                        break;
+                    case 'NotFoundError':
+                        message = "Aucune caméra compatible n'a été trouvée sur cet appareil.";
+                        break;
+                    case 'NotReadableError':
+                        message = "Erreur matérielle de la caméra. Elle est peut-être utilisée par une autre application ou ne fonctionne pas correctement.";
+                        break;
+                    case 'SecurityError':
+                         message = "L'accès à la caméra n'est autorisé que sur une connexion sécurisée (HTTPS).";
+                         break;
+                    default:
+                        message = `Une erreur inattendue est survenue lors de l'accès à la caméra : ${err.message}`;
+                }
+            }
+            alert(message);
         }
     };
 
