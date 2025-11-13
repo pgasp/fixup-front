@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Quote, Client, Vehicle, LaborTask, PartItem, InterventionTemplate, Part } from '../types';
 import Modal from './Modal';
-import { PlusIcon, TrashIcon } from './icons';
+import { PlusIcon, TrashIcon, SearchIcon } from './icons';
 import { suggestDescription } from '../services/geminiService';
 
 interface QuoteFormProps {
@@ -32,6 +32,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
   });
   const [selectedClientVehicles, setSelectedClientVehicles] = useState<Vehicle[]>([]);
   const [aiLoading, setAiLoading] = useState<number | null>(null);
+  const [licensePlateSearch, setLicensePlateSearch] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -43,6 +44,7 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
         setQuote({ clientId: '', vehicleId: '', date: new Date().toISOString().split('T')[0], validityDuration: 30, taxRate: 20, laborItems: [{...emptyLaborTask, id: crypto.randomUUID(), partItems: []}] });
         setSelectedClientVehicles([]);
       }
+      setLicensePlateSearch('');
     }
   }, [existingQuote, isOpen, clients]);
 
@@ -56,6 +58,35 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
       setQuote(prev => ({ ...prev, [name]: value }));
     }
   };
+
+  const handleVehicleSearch = () => {
+    if (!licensePlateSearch.trim()) return;
+    const plate = licensePlateSearch.trim().toUpperCase();
+    
+    let foundClient: Client | undefined;
+    let foundVehicle: Vehicle | undefined;
+
+    for (const client of clients) {
+        const vehicle = client.vehicles.find(v => v.licensePlate.toUpperCase() === plate);
+        if (vehicle) {
+            foundClient = client;
+            foundVehicle = vehicle;
+            break;
+        }
+    }
+
+    if (foundClient && foundVehicle) {
+        setSelectedClientVehicles(foundClient.vehicles);
+        setQuote(prev => ({ 
+            ...prev, 
+            clientId: foundClient!.id, 
+            vehicleId: foundVehicle!.id 
+        }));
+    } else {
+        alert(`Aucun véhicule trouvé avec la plaque d'immatriculation : ${plate}`);
+    }
+  };
+
 
   const handleLaborChange = (index: number, field: keyof Omit<LaborTask, 'id' | 'partItems'>, value: string | number) => {
     const newItems = [...quote.laborItems];
@@ -154,6 +185,29 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={existingQuote ? `Modifier Devis ${existingQuote.quoteNumber}` : `Nouveau Devis ${nextQuoteNumber}`}>
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+            <h3 className="font-semibold text-lg mb-2">Recherche Rapide</h3>
+            <div className="flex gap-2 items-center p-4 border dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+              <input
+                type="text"
+                value={licensePlateSearch}
+                onChange={(e) => setLicensePlateSearch(e.target.value.toUpperCase())}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleVehicleSearch(); } }}
+                placeholder="Rechercher par plaque d'immatriculation..."
+                className="flex-grow bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3"
+              />
+              <button
+                type="button"
+                onClick={handleVehicleSearch}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md flex items-center gap-2"
+              >
+                <SearchIcon className="h-5 w-5" />
+                Rechercher
+              </button>
+            </div>
+            <div className="text-center my-4 text-sm text-gray-500 font-semibold">OU</div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <select name="clientId" value={quote.clientId} onChange={handleChange} required className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3">
                 <option value="">Sélectionner un client</option>

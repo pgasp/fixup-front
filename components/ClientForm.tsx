@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Client, Vehicle, VehicleServiceHistory } from '../types';
 import Modal from './Modal';
-import { PlusIcon, TrashIcon, ChevronDownIcon } from './icons';
+import { PlusIcon, TrashIcon, ChevronDownIcon, FileTextIcon } from './icons';
 import { fetchVehicleInfo } from '../services/vehicleInfoService';
 
 interface ClientFormProps {
@@ -9,19 +9,18 @@ interface ClientFormProps {
   onClose: () => void;
   onSave: (client: Client) => void;
   existingClient?: Client | null;
+  onViewInvoice: (repairOrderId: string) => void;
 }
 
 const emptyVehicle: Omit<Vehicle, 'id' | 'serviceHistory'> = { licensePlate: '', make: '', model: '' };
-const emptyHistoryEntry: Omit<VehicleServiceHistory, 'id' | 'referenceId'> = { date: '', mileage: 0, description: '' };
 
-const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existingClient }) => {
+const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existingClient, onViewInvoice }) => {
   const [client, setClient] = useState<Omit<Client, 'id'>>({
     name: '', email: '', phone: '', address: '', postalCode: '', city: '', vehicles: []
   });
   const [vehicleInfoLoading, setVehicleInfoLoading] = useState<number | null>(null);
   const [vehicleInfoError, setVehicleInfoError] = useState<string | null>(null);
   const [expandedHistories, setExpandedHistories] = useState<Record<string, boolean>>({});
-  const [newHistoryEntries, setNewHistoryEntries] = useState<Record<string, Omit<VehicleServiceHistory, 'id' | 'referenceId'>>>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -32,7 +31,6 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
       }
       setVehicleInfoError(null);
       setExpandedHistories({});
-      setNewHistoryEntries({});
     }
   }, [existingClient, isOpen]);
 
@@ -42,13 +40,19 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
   };
 
   const handleVehicleChange = (index: number, field: keyof Omit<Vehicle, 'id' | 'serviceHistory'>, value: string) => {
-    const newVehicles = [...client.vehicles];
-    (newVehicles[index] as any)[field] = value;
-    setClient(prev => ({ ...prev, vehicles: newVehicles }));
+    setClient(prev => {
+        const newClient = { ...prev };
+        const newVehicles = [...newClient.vehicles];
+        if (newVehicles[index]) {
+            (newVehicles[index] as any)[field] = value;
+            newClient.vehicles = newVehicles;
+        }
+        return newClient;
+    });
   };
   
   const handleFetchVehicleInfo = async (index: number) => {
-      const plate = client.vehicles[index].licensePlate;
+      const plate = client.vehicles[index]?.licensePlate;
       if (!plate) {
           setVehicleInfoError("Veuillez entrer une plaque d'immatriculation.");
           return;
@@ -57,9 +61,13 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
       setVehicleInfoError(null);
       try {
           const info = await fetchVehicleInfo(plate);
-          const newVehicles = [...client.vehicles];
-          newVehicles[index] = { ...newVehicles[index], make: info.make || '', model: info.model || '' };
-          setClient(prev => ({...prev, vehicles: newVehicles}));
+          setClient(prev => {
+            const newVehicles = [...prev.vehicles];
+            if (newVehicles[index]) {
+              newVehicles[index] = { ...newVehicles[index], make: info.make || '', model: info.model || '' };
+            }
+            return {...prev, vehicles: newVehicles};
+          });
       } catch(error) {
         if (error instanceof Error) {
           setVehicleInfoError(error.message);
@@ -76,49 +84,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
   };
 
   const removeVehicle = (index: number) => {
-    if (client.vehicles.length > 1) {
-      setClient(prev => ({ ...prev, vehicles: prev.vehicles.filter((_, i) => i !== index) }));
-    }
+    setClient(prev => {
+        if (prev.vehicles.length > 1) {
+            return { ...prev, vehicles: prev.vehicles.filter((_, i) => i !== index) };
+        }
+        return prev;
+    });
   };
 
   const toggleHistory = (vehicleId: string) => {
     setExpandedHistories(prev => ({...prev, [vehicleId]: !prev[vehicleId]}));
-  };
-
-  const handleNewHistoryChange = (vehicleId: string, field: 'date' | 'mileage' | 'description', value: string | number) => {
-    setNewHistoryEntries(prev => ({
-        ...prev,
-        [vehicleId]: {
-            ...(prev[vehicleId] || emptyHistoryEntry),
-            [field]: value,
-        }
-    }));
-  };
-
-  const handleAddHistory = (vehicleIndex: number) => {
-    const vehicleId = client.vehicles[vehicleIndex].id;
-    const entry = newHistoryEntries[vehicleId];
-    if (entry && entry.date && entry.mileage > 0 && entry.description) {
-      const newEntry: VehicleServiceHistory = {
-        ...entry,
-        id: crypto.randomUUID(),
-        mileage: Number(entry.mileage),
-      };
-      
-      const newVehicles = [...client.vehicles];
-      newVehicles[vehicleIndex].serviceHistory.push(newEntry);
-      newVehicles[vehicleIndex].serviceHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      
-      setClient(prev => ({...prev, vehicles: newVehicles}));
-      
-      setNewHistoryEntries(prev => {
-        const newState = {...prev};
-        delete newState[vehicleId];
-        return newState;
-      });
-    } else {
-      alert("Veuillez remplir tous les champs (date, kilométrage > 0, description).");
-    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -186,31 +161,36 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
                                           <th className="py-1 px-2">Date</th>
                                           <th className="py-1 px-2">Kilométrage</th>
                                           <th className="py-1 px-2">Description</th>
+                                          <th className="py-1 px-2">Action</th>
                                       </tr>
                                   </thead>
                                   <tbody>
-                                      {vehicle.serviceHistory.map(entry => (
+                                      {vehicle.serviceHistory
+                                        .slice()
+                                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                        .map(entry => (
                                           <tr key={entry.id} className="border-b border-gray-200 dark:border-gray-700">
                                               <td className="py-2 px-2">{new Date(entry.date).toLocaleDateString()}</td>
                                               <td className="py-2 px-2">{entry.mileage} km</td>
                                               <td className="py-2 px-2">{entry.description}</td>
+                                              <td className="py-2 px-2">
+                                                {entry.referenceId && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onViewInvoice(entry.referenceId!)}
+                                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-xs font-semibold"
+                                                        title="Voir la facture associée"
+                                                    >
+                                                        <FileTextIcon className="h-4 w-4" />
+                                                        Facture
+                                                    </button>
+                                                )}
+                                              </td>
                                           </tr>
                                       ))}
                                   </tbody>
                               </table>
                           ) : <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Aucun historique de service pour ce véhicule.</p>}
-                          
-                          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <h4 className="text-sm font-semibold mb-2">Ajouter une entrée manuelle</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-                                <input type="date" value={newHistoryEntries[vehicle.id]?.date || ''} onChange={e => handleNewHistoryChange(vehicle.id, 'date', e.target.value)} className="w-full bg-white dark:bg-gray-700 text-sm p-1 rounded-md" placeholder="Date"/>
-                                <input type="number" value={newHistoryEntries[vehicle.id]?.mileage || ''} onChange={e => handleNewHistoryChange(vehicle.id, 'mileage', e.target.value)} className="w-full bg-white dark:bg-gray-700 text-sm p-1 rounded-md" placeholder="Kilométrage"/>
-                                <div className="md:col-span-2 flex gap-2">
-                                    <input type="text" value={newHistoryEntries[vehicle.id]?.description || ''} onChange={e => handleNewHistoryChange(vehicle.id, 'description', e.target.value)} className="flex-grow w-full bg-white dark:bg-gray-700 text-sm p-1 rounded-md" placeholder="Description de l'intervention"/>
-                                    <button type="button" onClick={() => handleAddHistory(index)} className="px-3 py-1 bg-green-600 text-white rounded-md text-sm font-semibold hover:bg-green-700">Ajouter</button>
-                                </div>
-                            </div>
-                          </div>
                       </div>
                   )}
               </div>

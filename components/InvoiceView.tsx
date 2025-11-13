@@ -1,6 +1,5 @@
 import React from 'react';
-import { Invoice, Client, Vehicle, Settings } from '../types';
-// FIX: Import 'CheckCircleIcon'.
+import { Invoice, Client, Vehicle, Settings, PaymentDetails } from '../types';
 import { CarIcon, UsersIcon, CalendarIcon, CreditCardIcon, ClockIcon, CheckCircleIcon } from './icons';
 
 interface InvoiceViewProps {
@@ -10,6 +9,13 @@ interface InvoiceViewProps {
   settings: Settings;
   onMarkAsPaid: (invoice: Invoice) => void;
 }
+
+const paymentMethodLabels: Record<PaymentDetails['method'], string> = {
+    card: 'Carte bancaire',
+    cash: 'Espèces',
+    transfer: 'Virement',
+    other: 'Autre',
+};
 
 const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, settings, onMarkAsPaid }) => {
   if (!invoice || !client || !vehicle) {
@@ -67,10 +73,10 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, set
 
        <section className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h3 className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2"><CreditCardIcon className="h-5 w-5"/> Statut du Paiement</h3>
-           {invoice.status === 'paid' ? (
+           {invoice.status === 'paid' && invoice.paymentDetails ? (
                 <div className="text-green-600 dark:text-green-400 font-bold flex items-center gap-2">
                     <CheckCircleIcon className="h-6 w-6"/>
-                    <span>Payée le {new Date(invoice.paymentDetails!.date).toLocaleDateString()} par {invoice.paymentDetails!.method}</span>
+                    <span>Payée le {new Date(invoice.paymentDetails.date).toLocaleDateString()} par {paymentMethodLabels[invoice.paymentDetails.method]}</span>
                 </div>
            ) : (
                 <div className="text-orange-600 dark:text-orange-400 font-bold flex items-center gap-2">

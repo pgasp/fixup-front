@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 // FIX: Add missing type imports for VehicleInspectionReport and PaymentDetails.
@@ -223,7 +221,9 @@ const App: React.FC = () => {
     const handleDeleteClient = createDeleteHandler('client', (c: Client) => c.name);
     const handleDeleteTemplate = createDeleteHandler('template', (t: InterventionTemplate) => t.name);
     const handleDeleteTechnician = createDeleteHandler('technician', (t: Technician) => t.name);
-    const handleDeletePart = createDeleteHandler('part', (p: Part) => p.name);
+    const handleDeletePart = (partId: string) => {
+        setParts(prev => prev.filter(p => p.id !== partId));
+    };
     const handleDeleteRepairOrder = createDeleteHandler('repair_order', (ro: RepairOrder) => ro.quote.quoteNumber.replace('DEV', 'FICHE'));
     const handleDeleteInvoice = createDeleteHandler('invoice', (inv: Invoice) => inv.invoiceNumber);
     const handleDeletePurchaseOrder = createDeleteHandler('purchase_order', (po: PurchaseOrder) => po.orderNumber);
@@ -406,6 +406,20 @@ const App: React.FC = () => {
     const handleSaveRepairOrderMileage = (orderId: string, mileage: number) => {
         setRepairOrders(prev => prev.map(ro => ro.id === orderId ? {...ro, mileage} : ro));
     };
+
+    const handleViewInvoiceFromRepairOrder = (repairOrderId: string) => {
+        const repairOrder = repairOrders.find(ro => ro.id === repairOrderId);
+        if (!repairOrder) {
+            console.error(`Repair order with id ${repairOrderId} not found.`);
+            return;
+        }
+        const relatedInvoice = invoices.find(inv => inv.quote.id === repairOrder.quote.id);
+        if (relatedInvoice) {
+            setInvoiceToView(relatedInvoice);
+        } else {
+            alert("Aucune facture n'a été trouvée pour cette intervention.");
+        }
+    };
     
 
     const renderView = () => {
@@ -512,20 +526,20 @@ const App: React.FC = () => {
             title: 'Atelier', 
             icon: WrenchIcon,
             items: [
-                { view: 'scheduler', label: 'Planning', icon: CalendarIcon },
-                { view: 'quotes', label: 'Devis', icon: FileTextIcon },
                 { view: 'repair_orders', label: 'Fiches Réparation', icon: WrenchIcon },
-                { view: 'invoices', label: 'Factures', icon: ReceiptTaxIcon },
+                { view: 'scheduler', label: 'Planning', icon: CalendarIcon },
+                { view: 'parts', label: 'Pièces', icon: BoxIcon },
+                { view: 'templates', label: 'Catalogue', icon: BookOpenIcon },
             ]
         },
         {
             title: 'Gestion',
             icon: BookOpenIcon,
             items: [
-                { view: 'clients', label: 'Clients', icon: UsersIcon },
-                { view: 'parts', label: 'Pièces', icon: BoxIcon },
+                { view: 'quotes', label: 'Devis', icon: FileTextIcon },
+                { view: 'invoices', label: 'Factures', icon: ReceiptTaxIcon },
                 { view: 'purchase_orders', label: 'Commandes', icon: ShoppingCartIcon },
-                { view: 'templates', label: 'Catalogue', icon: BookOpenIcon },
+                { view: 'clients', label: 'Clients', icon: UsersIcon },
                 { view: 'technicians', label: 'Techniciens', icon: UsersIcon },
             ]
         },
@@ -590,14 +604,13 @@ const App: React.FC = () => {
                             )}
                         </div>
                     ))}
-                     <div>
-                        <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors mt-2 ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                            <CogIcon className="h-5 w-5" />
-                            Paramètres
-                        </button>
-                     </div>
                 </nav>
-                 <div className="mt-auto pt-4">
+
+                <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                     <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <CogIcon className="h-5 w-5" />
+                        Paramètres
+                    </button>
                     <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
                         {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
                         <span>{theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}</span>
@@ -632,6 +645,7 @@ const App: React.FC = () => {
                 onClose={() => setIsClientFormOpen(false)}
                 onSave={handleSaveClient}
                 existingClient={clientToEdit}
+                onViewInvoice={handleViewInvoiceFromRepairOrder}
             />
             <Modal isOpen={!!quoteToView} onClose={() => setQuoteToView(null)} title={`Détails Devis ${quoteToView?.quoteNumber}`}>
                 <QuoteView 
