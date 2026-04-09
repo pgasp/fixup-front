@@ -828,12 +828,17 @@ const App: React.FC = () => {
                 items: [
                     { view: 'quotes' as const, label: 'Devis', icon: FileTextIcon },
                     { view: 'invoices' as const, label: 'Factures', icon: ReceiptTaxIcon },
+                    { view: 'clients' as const, label: 'Clients', icon: UsersIcon },
+                    { view: 'technicians' as const, label: 'Techniciens', icon: UsersIcon },
+                ],
+            },
+            {
+                title: 'Achats',
+                icon: ShoppingCartIcon,
+                items: [
                     { view: 'purchase_orders' as const, label: 'Commandes', icon: ShoppingCartIcon },
                     { view: 'part_pricing' as const, label: 'Cotations Pièces', icon: DocumentSearchIcon },
                     { view: 'pre_orders' as const, label: 'Pré-commandes', icon: ShoppingCartIcon },
-                    { view: 'clients' as const, label: 'Clients', icon: UsersIcon },
-                    { view: 'users' as const, label: 'Utilisateurs', icon: UsersIcon },
-                    { view: 'technicians' as const, label: 'Techniciens', icon: UsersIcon },
                 ],
             },
             {
@@ -842,6 +847,14 @@ const App: React.FC = () => {
                 items: [
                     { view: 'reports' as const, label: 'Tableau de bord', icon: ChartBarIcon },
                     { view: 'accounting' as const, label: 'Analyse Financière', icon: WalletIcon },
+                ],
+            },
+            {
+                title: 'Administration',
+                icon: CogIcon,
+                items: [
+                    { view: 'users' as const, label: 'Utilisateurs', icon: UsersIcon },
+                    { view: 'settings' as const, label: 'Paramètres', icon: CogIcon },
                 ],
             },
         ];
@@ -872,8 +885,6 @@ const App: React.FC = () => {
             />
         );
     }
-
-    const canOpenSettings = authSession.user && canAccessSection(authSession.user.role, 'settings');
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
@@ -929,12 +940,6 @@ const App: React.FC = () => {
                     >
                         Déconnexion
                     </button>
-                    {canOpenSettings && (
-                    <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                        <CogIcon className="h-5 w-5" />
-                        Paramètres
-                    </button>
-                    )}
                     <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
                         {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
                         <span>{theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}</span>
