@@ -42,6 +42,7 @@ import PurchaseOrderPaymentForm from './components/PurchaseOrderPaymentForm';
 import ReportsDashboard from './components/ReportsDashboard';
 import AccountingDashboard from './components/AccountingDashboard';
 import SettingsComponent from './components/Settings';
+import { apiClient } from './services/api';
 
 // Import icons for sidebar
 import { 
@@ -156,6 +157,32 @@ const App: React.FC = () => {
     useEffect(() => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
     }, [theme]);
+
+    useEffect(() => {
+        const shouldUseBackend = import.meta.env.VITE_USE_BACKEND === 'true';
+        if (!shouldUseBackend) {
+            return;
+        }
+
+        const bootstrap = async () => {
+            try {
+                const [backendClients, backendQuotes, backendRepairOrders, backendInvoices] = await Promise.all([
+                    apiClient.clients.list(),
+                    apiClient.quotes.list(),
+                    apiClient.repairOrders.list(),
+                    apiClient.invoices.list(),
+                ]);
+                setClients(backendClients);
+                setQuotes(backendQuotes);
+                setRepairOrders(backendRepairOrders);
+                setInvoices(backendInvoices);
+            } catch (error) {
+                console.error('Backend bootstrap failed, fallback to localStorage', error);
+            }
+        };
+
+        void bootstrap();
+    }, [setClients, setInvoices, setQuotes, setRepairOrders]);
 
 
     // Handlers

@@ -891,7 +891,7 @@ components:
             
     QuoteStatus:
       type: string
-      enum: [draft, sent, approved, rejected]
+      enum: [draft, awaiting_part_pricing, ready_to_send, sent, approved, rejected]
       
     QuoteStatusHistory:
       type: object
