@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Quote, Client, QuoteStatus, Appointment } from '../types';
-import { FileTextIcon, PencilIcon, TrashIcon, SearchIcon, CalendarIcon, WrenchIcon } from './icons';
+import { FileTextIcon, PencilIcon, TrashIcon, SearchIcon, CalendarIcon, WrenchIcon, ClockIcon, CheckCircleIcon } from './icons';
 import { calculateQuoteTotal } from '../domain/financial';
+import { approvedQuotePreOrderIndicator } from '../domain/quotePreOrder';
 import { quoteStatusBadgeConfig } from '../domain/status';
 
 interface QuoteListProps {
@@ -107,6 +108,7 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
                 const Icon = quoteStatusBadgeConfig[quote.status].icon;
                 const quoteAppointment = appointments.find(a => a.quoteId === quote.id);
                 const isEditable = quote.status === 'draft' || quote.status === 'awaiting_part_pricing';
+                const preOrderInd = approvedQuotePreOrderIndicator(quote);
                 return (
                     <li key={quote.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${quote.isConvertedToRepairOrder ? 'opacity-60' : ''}`}>
                         <div className="flex-grow">
@@ -117,6 +119,24 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                             <div className="flex sm:flex-col items-start sm:items-end gap-2">
                                 <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{quote.total.toFixed(2)}€</p>
+                                {preOrderInd === 'waiting' && (
+                                    <span
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40"
+                                        title="En attente de réception des pièces commandées"
+                                    >
+                                        <ClockIcon className="w-3.5 h-3.5" />
+                                        En attente pièce(s)
+                                    </span>
+                                )}
+                                {preOrderInd === 'fulfilled' && (
+                                    <span
+                                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-900/40"
+                                        title="Pièces sur commande reçues"
+                                    >
+                                        <CheckCircleIcon className="w-3.5 h-3.5" />
+                                        Pièces reçues
+                                    </span>
+                                )}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onChangeStatus(quote.id); }}
                                     title="Changer le statut"

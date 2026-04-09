@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PurchaseOrder, PurchaseOrderItem, Part } from '../types';
+import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Part } from '../types';
 import Modal from './Modal';
 import { PlusIcon, TrashIcon } from './icons';
 
@@ -20,6 +20,7 @@ type FormOrderItem = {
     newReference: string;
     quantity: number;
     unitPrice: number;
+    sourceQuotePartItemId?: string;
 };
 
 const emptyFormItem: FormOrderItem = {
@@ -46,11 +47,18 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ isOpen, onClose, 
             if (existingOrder) {
                 const { items, supplier, supplierOrderNumber, date, expectedDeliveryDate } = existingOrder;
                 setOrderInfo({ supplier, supplierOrderNumber: supplierOrderNumber || '', date, expectedDeliveryDate: expectedDeliveryDate || '' });
-                setFormItems(items.map(item => ({
-                    ...item,
-                    isNew: false,
-                    newReference: parts.find(p => p.id === item.partId)?.reference || '',
-                })));
+                setFormItems(
+                    items.map(item => ({
+                        id: item.id,
+                        isNew: false,
+                        partId: item.partId,
+                        description: item.description,
+                        newReference: parts.find(p => p.id === item.partId)?.reference || '',
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        sourceQuotePartItemId: item.sourceQuotePartItemId,
+                    })),
+                );
             } else {
                 setOrderInfo({
                     supplier: '',
@@ -119,6 +127,7 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ isOpen, onClose, 
                     description: item.description,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
+                    ...(item.sourceQuotePartItemId ? { sourceQuotePartItemId: item.sourceQuotePartItemId } : {}),
                 };
             } else {
                 return {
@@ -127,14 +136,25 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ isOpen, onClose, 
                     description: item.description,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
+                    ...(item.sourceQuotePartItemId ? { sourceQuotePartItemId: item.sourceQuotePartItemId } : {}),
                 };
             }
         }).filter(item => item.partId && item.quantity > 0);
 
+        const prevStatus = existingOrder?.status;
+        const statusAfterSave: PurchaseOrderStatus =
+            prevStatus === 'received' ||
+            prevStatus === 'cancelled' ||
+            prevStatus === 'partially_received' ||
+            prevStatus === 'in_delivery' ||
+            prevStatus === 'ordered'
+                ? prevStatus
+                : 'ordered';
+
         const orderToSave: PurchaseOrder = {
             id: existingOrder?.id || crypto.randomUUID(),
             orderNumber: existingOrder?.orderNumber || nextOrderNumber,
-            status: existingOrder?.status || 'draft',
+            status: statusAfterSave,
             supplier: orderInfo.supplier,
             supplierOrderNumber: orderInfo.supplierOrderNumber,
             date: orderInfo.date,

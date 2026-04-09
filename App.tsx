@@ -5,12 +5,6 @@ import {
     VehicleServiceHistory, PurchaseOrder, FinancialTransaction, Settings, RepairOrderStatus, QuoteStatus, VehicleInspectionReport, PaymentDetails, PurchaseOrderItem
 } from './types';
 
-// Import seed data
-import { 
-    seedClients, seedQuotes, seedAppointments, seedRepairOrders, seedInvoices, seedParts, 
-    seedTechnicians, seedInterventionTemplates, seedPurchaseOrders, seedFinancialTransactions 
-} from './services/seedData';
-
 // Import components
 import QuoteList from './components/QuoteList';
 import QuoteForm from './components/QuoteForm';
@@ -45,14 +39,15 @@ import SettingsComponent from './components/Settings';
 import LoginPage from './components/LoginPage';
 import UserAdminPage, { type UserAdminPageHandle } from './components/UserAdminPage';
 import { apiClient, setUnauthorizedHandler } from './services/api';
-import { AUTH_STORAGE_KEY, type AuthSession } from './auth/session';
+import { AUTH_STORAGE_KEY, normalizeAuthSession, type AuthSession, type AuthUser } from './auth/session';
 import {
     canAccessSection,
     filterSidebarGroups,
-    getDefaultSectionForRole,
+    getDefaultSectionForRoles,
+    sectionLabelsFr,
     type AppSection,
 } from './auth/appSections';
-import { roleLabelsFr } from './auth/roles';
+import { formatRolesLabelFr } from './auth/roles';
 
 // Import icons for sidebar
 import { 
@@ -60,23 +55,24 @@ import {
     BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon, DocumentSearchIcon
 } from './components/icons';
 import { calculateInvoiceTotal, calculatePurchaseOrderTotal } from './domain/financial';
+import { patchQuoteForReceivedPurchaseOrder } from './domain/quotePreOrder';
 
 type View = AppSection;
 
 const App: React.FC = () => {
-    const [authSession, setAuthSession] = useLocalStorage<AuthSession | null>(AUTH_STORAGE_KEY, null);
+    const [rawAuthSession, setAuthSession] = useLocalStorage<AuthSession | null>(AUTH_STORAGE_KEY, null);
 
     // Main state management using useLocalStorage hook
-    const [clients, setClients] = useLocalStorage<Client[]>('clients', seedClients);
-    const [quotes, setQuotes] = useLocalStorage<Quote[]>('quotes', seedQuotes);
-    const [appointments, setAppointments] = useLocalStorage<Appointment[]>('appointments', seedAppointments);
-    const [repairOrders, setRepairOrders] = useLocalStorage<RepairOrder[]>('repairOrders', seedRepairOrders);
-    const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', seedInvoices);
-    const [parts, setParts] = useLocalStorage<Part[]>('parts', seedParts);
-    const [technicians, setTechnicians] = useLocalStorage<Technician[]>('technicians', seedTechnicians);
-    const [interventionTemplates, setInterventionTemplates] = useLocalStorage<InterventionTemplate[]>('interventionTemplates', seedInterventionTemplates);
-    const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', seedPurchaseOrders);
-    const [transactions, setTransactions] = useLocalStorage<FinancialTransaction[]>('financialTransactions', seedFinancialTransactions);
+    const [clients, setClients] = useLocalStorage<Client[]>('clients', []);
+    const [quotes, setQuotes] = useLocalStorage<Quote[]>('quotes', []);
+    const [appointments, setAppointments] = useLocalStorage<Appointment[]>('appointments', []);
+    const [repairOrders, setRepairOrders] = useLocalStorage<RepairOrder[]>('repairOrders', []);
+    const [invoices, setInvoices] = useLocalStorage<Invoice[]>('invoices', []);
+    const [parts, setParts] = useLocalStorage<Part[]>('parts', []);
+    const [technicians, setTechnicians] = useLocalStorage<Technician[]>('technicians', []);
+    const [interventionTemplates, setInterventionTemplates] = useLocalStorage<InterventionTemplate[]>('interventionTemplates', []);
+    const [purchaseOrders, setPurchaseOrders] = useLocalStorage<PurchaseOrder[]>('purchaseOrders', []);
+    const [transactions, setTransactions] = useLocalStorage<FinancialTransaction[]>('financialTransactions', []);
     const [settings, setSettings] = useLocalStorage<Settings>('settings', { garageName: 'FixUp', address: '1 Rue de la République', postalCode: '75001', city: 'Paris', phone: '0123456789', email: 'contact@fixup.com', logo: '' });
     const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
 
@@ -117,6 +113,38 @@ const App: React.FC = () => {
     const [openSection, setOpenSection] = useState('Atelier');
 
     const userAdminRef = useRef<UserAdminPageHandle | null>(null);
+
+    const [technicianAppUsers, setTechnicianAppUsers] = useState<AuthUser[]>([]);
+
+    const authSession = normalizeAuthSession(rawAuthSession);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7927/ingest/1372315e-c794-41cc-9964-7462f0803240',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'38b955'},body:JSON.stringify({sessionId:'38b955',location:'App.tsx:after_state',message:'hooks_initialized',data:{},timestamp:Date.now(),hypothesisId:'H-B',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
+
+    useEffect(() => {
+        if (rawAuthSession != null && authSession === null) {
+            setAuthSession(null);
+        }
+    }, [rawAuthSession, authSession, setAuthSession]);
+
+    useEffect(() => {
+        if (!authSession?.token) {
+            setTechnicianAppUsers([]);
+            return;
+        }
+        if (activeView !== 'technicians' && !isTechnicianFormOpen) {
+            return;
+        }
+        void apiClient.auth
+            .technicianAppUsers()
+            .then(setTechnicianAppUsers)
+            .catch(() => setTechnicianAppUsers([]));
+    }, [authSession?.token, activeView, isTechnicianFormOpen]);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7927/ingest/1372315e-c794-41cc-9964-7462f0803240',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'38b955'},body:JSON.stringify({sessionId:'38b955',location:'App.tsx:before_usememos',message:'about_to_run_memos',data:{},timestamp:Date.now(),hypothesisId:'H-C',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
 
     // Computed values
     const nextQuoteNumber = useMemo(() => {
@@ -160,6 +188,10 @@ const App: React.FC = () => {
         });
         return workloadMap;
     }, [repairOrders, technicians]);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7927/ingest/1372315e-c794-41cc-9964-7462f0803240',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'38b955'},body:JSON.stringify({sessionId:'38b955',location:'App.tsx:after_usememos',message:'memos_ok',data:{},timestamp:Date.now(),hypothesisId:'H-C',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
 
 
     // Theme toggler
@@ -232,8 +264,22 @@ const App: React.FC = () => {
         if (!authSession?.user) {
             return;
         }
-        if (!canAccessSection(authSession.user.role, activeView)) {
-            setActiveView(getDefaultSectionForRole(authSession.user.role));
+        try {
+            const next = normalizeAuthSession(authSession);
+            if (next && next.user.roles.join('|') !== (authSession.user.roles?.join('|') ?? '')) {
+                setAuthSession(next);
+            }
+        } catch {
+            setAuthSession(null);
+        }
+    }, [authSession, setAuthSession]);
+
+    useEffect(() => {
+        if (!authSession?.user) {
+            return;
+        }
+        if (!canAccessSection(authSession.user.roles, activeView)) {
+            setActiveView(getDefaultSectionForRoles(authSession.user.roles));
         }
     }, [authSession?.user, activeView]);
 
@@ -588,13 +634,14 @@ const App: React.FC = () => {
             orderNumber: nextPurchaseOrderNumber,
             supplier,
             date: new Date().toISOString(),
-            status: 'draft',
+            status: 'ordered',
             items: itemsToOrder.map(item => ({
                 id: crypto.randomUUID(),
                 partId: item.partId,
                 description: item.description,
                 quantity: item.quantity,
                 unitPrice: item.purchasePrice,
+                sourceQuotePartItemId: item.id,
             })),
         };
         setPurchaseOrders(prev => [...prev, newPO]);
@@ -632,20 +679,33 @@ const App: React.FC = () => {
         alert(`Bon de commande ${newPO.orderNumber} créé pour ${supplier}.`);
     };
 
-    const handleReceivePO = (orderId: string) => {
+    const handleAdvancePOStatus = (orderId: string, nextStatus: 'in_delivery' | 'received') => {
         const order = purchaseOrders.find(po => po.id === orderId);
-        if(!order) return;
-        setPurchaseOrders(prev => prev.map(po => po.id === orderId ? {...po, status: 'received'} : po));
+        if (!order) return;
+
+        if (nextStatus === 'in_delivery') {
+            setPurchaseOrders(prev => prev.map(po => (po.id === orderId ? { ...po, status: 'in_delivery' } : po)));
+            return;
+        }
+
+        setPurchaseOrders(prev => prev.map(po => (po.id === orderId ? { ...po, status: 'received' } : po)));
         setParts(prevParts => {
             const newParts = [...prevParts];
             order.items.forEach(item => {
                 const partIndex = newParts.findIndex(p => p.id === item.partId);
-                if(partIndex > -1) {
+                if (partIndex > -1) {
                     newParts[partIndex].stock += item.quantity;
                 }
             });
             return newParts;
         });
+        setQuotes(prev => prev.map(q => patchQuoteForReceivedPurchaseOrder(q, order)));
+        setRepairOrders(prev =>
+            prev.map(ro => {
+                const nextQuote = patchQuoteForReceivedPurchaseOrder(ro.quote, order);
+                return nextQuote === ro.quote ? ro : { ...ro, quote: nextQuote };
+            }),
+        );
     };
 
     const handleMarkPOAsPaid = (paymentDetails: {date: string}) => {
@@ -746,9 +806,10 @@ const App: React.FC = () => {
                     onDelete={handleDeleteTemplate}
                 />;
             case 'technicians':
-                return <TechnicianList 
-                    technicians={technicians} 
+                return <TechnicianList
+                    technicians={technicians}
                     repairOrders={repairOrders}
+                    technicianAppUsers={technicianAppUsers}
                     onEdit={tech => { setTechnicianToEdit(tech); setIsTechnicianFormOpen(true); }}
                     onDelete={handleDeleteTechnician}
                 />;
@@ -764,7 +825,7 @@ const App: React.FC = () => {
                             orderNumber: nextPurchaseOrderNumber, 
                             supplier: part.supplier, 
                             date: new Date().toISOString(), 
-                            status: 'draft', 
+                            status: 'ordered', 
                             items: [{ id: crypto.randomUUID(), partId: part.id, description: part.name, quantity: 10, unitPrice: part.purchasePrice }]
                         });
                         setIsPOFormOpen(true);
@@ -785,7 +846,7 @@ const App: React.FC = () => {
                     orders={purchaseOrders}
                     onEdit={order => { setPOToEdit(order); setIsPOFormOpen(true); }}
                     onDelete={handleDeletePurchaseOrder}
-                    onReceive={handleReceivePO}
+                    onAdvanceStatus={handleAdvancePOStatus}
                     onMarkAsPaid={order => { setPOForPayment(order); setIsPOPaymentFormOpen(true); }}
                 />;
             case 'reports':
@@ -829,7 +890,7 @@ const App: React.FC = () => {
                     { view: 'quotes' as const, label: 'Devis', icon: FileTextIcon },
                     { view: 'invoices' as const, label: 'Factures', icon: ReceiptTaxIcon },
                     { view: 'clients' as const, label: 'Clients', icon: UsersIcon },
-                    { view: 'technicians' as const, label: 'Techniciens', icon: UsersIcon },
+                    { view: 'technicians' as const, label: 'Fiches techniciens', icon: UsersIcon },
                 ],
             },
             {
@@ -861,8 +922,8 @@ const App: React.FC = () => {
         if (!authSession?.user) {
             return base;
         }
-        return filterSidebarGroups(base, authSession.user.role);
-    }, [authSession?.user?.role]);
+        return filterSidebarGroups(base, authSession.user.roles);
+    }, [authSession?.user?.roles?.join(',')]);
 
     const currentClient = quoteToView ? clients.find(c => c.id === quoteToView.clientId) : null;
     const currentVehicle = currentClient && quoteToView ? currentClient.vehicles.find(v => v.id === quoteToView.vehicleId) : null;
@@ -875,12 +936,16 @@ const App: React.FC = () => {
         }
     }, [activeView, sidebarGroups]);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7927/ingest/1372315e-c794-41cc-9964-7462f0803240',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'38b955'},body:JSON.stringify({sessionId:'38b955',location:'App.tsx:auth_gate',message:'auth_shape',data:{hasToken:!!authSession?.token,hasUser:!!authSession?.user,willShowLogin:!authSession?.token},timestamp:Date.now(),hypothesisId:'H-D',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
+
     if (!authSession?.token) {
         return (
             <LoginPage
                 onLoggedIn={(session) => {
                     setAuthSession(session);
-                    setActiveView(getDefaultSectionForRole(session.user.role));
+                    setActiveView(getDefaultSectionForRoles(session.user.roles));
                 }}
             />
         );
@@ -931,7 +996,7 @@ const App: React.FC = () => {
                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                     <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
                         <p className="font-semibold text-gray-700 dark:text-gray-200 truncate">{authSession.user.displayName}</p>
-                        <p>{roleLabelsFr[authSession.user.role]}</p>
+                        <p className="leading-snug">{formatRolesLabelFr(authSession.user.roles)}</p>
                     </div>
                     <button
                         type="button"
@@ -948,7 +1013,7 @@ const App: React.FC = () => {
             </aside>
             <main className="flex-1 p-6 overflow-y-auto">
                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold capitalize text-gray-800 dark:text-gray-200">{activeView.replace(/_/g, ' ')}</h2>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{sectionLabelsFr[activeView]}</h2>
                     {activeView === 'quotes' && <button onClick={() => { setQuoteToEdit(null); setIsQuoteFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouveau Devis</button>}
                     {activeView === 'clients' && <button onClick={() => { setClientToEdit(null); setIsClientFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Ajouter un Client</button>}
                     {activeView === 'templates' && <button onClick={() => { setTemplateToEdit(null); setIsTemplateFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouvelle Intervention</button>}
@@ -1068,11 +1133,13 @@ const App: React.FC = () => {
                 parts={parts}
                 existingTemplate={templateToEdit}
             />
-            <TechnicianForm 
+            <TechnicianForm
                 isOpen={isTechnicianFormOpen}
                 onClose={() => { setIsTechnicianFormOpen(false); setTechnicianToEdit(null); }}
                 onSave={handleSaveTechnician}
                 existingTechnician={technicianToEdit}
+                technicianAppUsers={technicianAppUsers}
+                allTechnicians={technicians}
             />
              <PartForm 
                 isOpen={isPartFormOpen}

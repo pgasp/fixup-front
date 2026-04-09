@@ -1039,10 +1039,12 @@ components:
         partId: { type: string }
         quantity: { type: integer }
         unitPrice: { type: number }
+        description: { type: string }
+        sourceQuotePartItemId: { type: string, nullable: true }
           
     PurchaseOrderStatus:
       type: string
-      enum: [draft, ordered, partially_received, received, cancelled]
+      enum: [draft, ordered, in_delivery, partially_received, received, cancelled]
           
     PurchaseOrder:
       type: object

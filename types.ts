@@ -37,7 +37,7 @@ export interface PartItem {
   purchasePrice?: number;
   reference?: string;
   isPreOrder?: boolean;
-  preOrderStatus?: 'pending_pricing' | 'priced' | 'ordered';
+  preOrderStatus?: 'pending_pricing' | 'priced' | 'ordered' | 'received';
   supplier?: string;
   supplierReference?: string;
 }
@@ -142,6 +142,8 @@ export interface Invoice {
 
 export interface Technician {
     id: string;
+    /** Compte applicatif associé (rôle technicien côté connexion) */
+    userId?: string;
     name: string;
     specialty?: string;
     email?: string;
@@ -149,7 +151,13 @@ export interface Technician {
     hireDate?: string;
 }
 
-export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
+export type PurchaseOrderStatus =
+  | 'draft'
+  | 'ordered'
+  | 'in_delivery'
+  | 'partially_received'
+  | 'received'
+  | 'cancelled';
 
 export interface PurchaseOrderItem {
     id: string;
@@ -157,6 +165,8 @@ export interface PurchaseOrderItem {
     description: string;
     quantity: number;
     unitPrice: number;
+    /** Ligne de devis d’origine (pré-commande), pour marquer la pièce « reçue » à la réception du BC. */
+    sourceQuotePartItemId?: string;
 }
 
 export interface PurchaseOrder {

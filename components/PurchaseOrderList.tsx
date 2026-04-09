@@ -8,11 +8,11 @@ interface PurchaseOrderListProps {
   orders: PurchaseOrder[];
   onEdit: (order: PurchaseOrder) => void;
   onDelete: (orderId: string) => void;
-  onReceive: (orderId: string) => void;
+  onAdvanceStatus: (orderId: string, nextStatus: 'in_delivery' | 'received') => void;
   onMarkAsPaid: (order: PurchaseOrder) => void;
 }
 
-const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, onDelete, onReceive, onMarkAsPaid }) => {
+const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, onDelete, onAdvanceStatus, onMarkAsPaid }) => {
     
     const sortedOrders = useMemo(() => {
         return [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -53,7 +53,24 @@ const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, o
                        
                         <div className="flex items-center justify-end gap-1 border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-gray-700 pt-3 sm:pt-0 sm:pl-3">
                            {order.status === 'ordered' && (
-                                <button onClick={() => onReceive(order.id)} className="p-2 text-gray-500 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Marquer comme Reçue"><CheckCircleIcon className="h-5 w-5"/></button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAdvanceStatus(order.id, 'in_delivery')}
+                                    className="p-2 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title="En cours de livraison"
+                                >
+                                    <TruckIcon className="h-5 w-5" />
+                                </button>
+                           )}
+                           {order.status === 'in_delivery' && (
+                                <button
+                                    type="button"
+                                    onClick={() => onAdvanceStatus(order.id, 'received')}
+                                    className="p-2 text-gray-500 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    title="Marquer comme reçue"
+                                >
+                                    <CheckCircleIcon className="h-5 w-5" />
+                                </button>
                            )}
                            {order.status === 'received' && !order.isPaid && (
                                 <button onClick={() => onMarkAsPaid(order)} className="p-2 text-gray-500 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Marquer comme Payée"><CreditCardIcon className="h-5 w-5"/></button>

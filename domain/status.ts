@@ -79,6 +79,11 @@ export const invoiceStatusBadgeConfig: Record<InvoiceStatus, StatusBadgeConfig> 
 export const purchaseOrderStatusBadgeConfig: Record<PurchaseOrderStatus, StatusBadgeConfig> = {
   draft: { text: 'Brouillon', color: 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: FileTextIcon },
   ordered: { text: 'Commande', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: ClockIcon },
+  in_delivery: {
+    text: 'En cours de livraison',
+    color: 'text-amber-600 bg-amber-100 dark:text-amber-400 dark:bg-amber-900/50',
+    icon: TruckIcon,
+  },
   partially_received: { text: 'Partiellement Recu', color: 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/50', icon: TruckIcon },
   received: { text: 'Recu', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
   cancelled: { text: 'Annule', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: TrashIcon },

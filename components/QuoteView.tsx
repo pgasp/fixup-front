@@ -184,7 +184,19 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
                 </tr>
                 {allParts.length > 0 ? allParts.map(part => (
                     <tr key={part.id} className="border-b border-gray-100 dark:border-gray-700/50">
-                        <td className="py-2 pl-4">{part.description} {part.isPreOrder && <span className="text-orange-500 text-xs">(Sur commande)</span>}</td>
+                        <td className="py-2 pl-4">
+                            {part.description}{' '}
+                            {part.isPreOrder &&
+                                (part.preOrderStatus === 'pending_pricing' ? (
+                                    <span className="text-orange-500 text-xs">(Sur commande — cotation)</span>
+                                ) : part.preOrderStatus === 'ordered' ? (
+                                    <span className="text-amber-600 text-xs font-medium">(En attente livraison)</span>
+                                ) : part.preOrderStatus === 'received' ? (
+                                    <span className="text-green-600 text-xs font-medium">(Reçue)</span>
+                                ) : (
+                                    <span className="text-orange-500 text-xs">(Sur commande)</span>
+                                ))}
+                        </td>
                         <td className="py-2 text-center">{part.quantity}</td>
                         <td className="py-2 text-right">{part.preOrderStatus === 'pending_pricing' ? <span className="text-orange-500 italic">En attente</span> : `${part.unitPrice.toFixed(2)}€`}</td>
                         <td className="py-2 text-right font-semibold">{part.preOrderStatus === 'pending_pricing' ? <span className="text-orange-500 italic">...</span> : `${(part.quantity * part.unitPrice).toFixed(2)}€`}</td>
