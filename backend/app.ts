@@ -16,14 +16,51 @@ export type CreateAppOptions = {
   skipNotFound?: boolean;
 };
 
+const shouldPersistAfterRequest = (req: express.Request): boolean => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    return false;
+  }
+  const p = req.path ?? '';
+  if (p === '/api/v1/auth/login' || p.endsWith('/auth/login')) {
+    return false;
+  }
+  return true;
+};
+
 export const createApp = (options?: CreateAppOptions): Express => {
   const app = express();
   const startedAt = Date.now();
-  const { store, userStore } = createBackendContext();
+  const { store, userStore, persist } = createBackendContext();
   const requireAuth = createRequireAuth(userStore);
 
   app.use(express.json({ limit: '2mb' }));
   app.use(requestMeta);
+
+  if (persist) {
+    const flush = (): void => {
+      try {
+        persist();
+      } catch (err) {
+        console.error('FIXUP_DB_PATH: échec de la sauvegarde SQLite', err);
+      }
+    };
+    app.use((req, res, next) => {
+      if (!shouldPersistAfterRequest(req)) {
+        return next();
+      }
+      res.on('finish', () => {
+        if (res.statusCode >= 200 && res.statusCode < 400) {
+          flush();
+        }
+      });
+      next();
+    });
+    const onShutdown = (): void => {
+      flush();
+    };
+    process.once('SIGINT', onShutdown);
+    process.once('SIGTERM', onShutdown);
+  }
 
   app.get('/api/health', (_req, res) => {
     res.json({

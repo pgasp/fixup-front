@@ -30,8 +30,13 @@ const buildInitialUsers = (): StoredUser[] => {
 export class UserStore {
   private users: StoredUser[];
 
-  constructor() {
-    this.users = buildInitialUsers();
+  constructor(initialUsers?: StoredUser[]) {
+    this.users = initialUsers ?? buildInitialUsers();
+  }
+
+  /** Copie pour sérialisation (base locale, sauvegardes). */
+  snapshotUsers(): StoredUser[] {
+    return structuredClone(this.users);
   }
 
   findByEmail(email: string): StoredUser | undefined {
