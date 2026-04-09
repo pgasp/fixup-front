@@ -34,7 +34,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoggedIn }) => {
       >
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white">Connexion FixUp</h1>
         <p className="text-sm text-center text-gray-500 dark:text-gray-400">
-          Comptes de démonstration : par exemple admin@fixup.local (mot de passe dans la configuration serveur).
+          Techniciens atelier, administratifs et autres rôles utilisent un compte attribué par l’administrateur. Comptes
+          de démonstration : par ex. admin@fixup.local ou mecanicien@fixup.local (mots de passe côté configuration
+          serveur).
         </p>
         {error && (
           <div className="p-3 rounded-md bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-sm text-center">

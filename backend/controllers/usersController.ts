@@ -1,8 +1,18 @@
 import { NextFunction, Request, Response } from 'express';
-import { isUserRole, type UserRole } from '../../auth/roles';
+import { isUserRole, normalizeUserRoles, type UserRole } from '../../auth/roles';
 import { HttpError } from '../errors';
 import { UserStore } from '../auth/userStore';
 import { asRouteParam } from '../routeParams';
+
+const parseRolesBody = (value: unknown): UserRole[] | null => {
+  if (Array.isArray(value)) {
+    return normalizeUserRoles(value);
+  }
+  if (typeof value === 'string' && isUserRole(value)) {
+    return [value];
+  }
+  return null;
+};
 
 export const listUsers = (userStore: UserStore) => (_req: Request, res: Response): void => {
   res.json(userStore.listPublic());
@@ -10,17 +20,19 @@ export const listUsers = (userStore: UserStore) => (_req: Request, res: Response
 
 export const createUser = (userStore: UserStore) => (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const { email, displayName, role, password } = req.body as Record<string, unknown>;
+    const body = req.body as Record<string, unknown>;
+    const { email, displayName, password } = body;
+    const roles = parseRolesBody(body.roles ?? body.role);
     if (typeof email !== 'string' || typeof displayName !== 'string' || typeof password !== 'string') {
       throw new HttpError(400, 'email, displayName, and password are required');
     }
-    if (typeof role !== 'string' || !isUserRole(role)) {
-      throw new HttpError(400, 'valid role is required');
+    if (!roles || roles.length === 0) {
+      throw new HttpError(400, 'roles: at least one valid role is required');
     }
     const user = userStore.create({
       email,
       displayName,
-      role: role as UserRole,
+      roles,
       password,
     });
     res.status(201).json(user);
@@ -31,8 +43,9 @@ export const createUser = (userStore: UserStore) => (req: Request, res: Response
 
 export const updateUser = (userStore: UserStore) => (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const { email, displayName, role } = req.body as Record<string, unknown>;
-    const updates: { email?: string; displayName?: string; role?: UserRole } = {};
+    const body = req.body as Record<string, unknown>;
+    const { email, displayName } = body;
+    const updates: { email?: string; displayName?: string; roles?: UserRole[] } = {};
     if (email !== undefined) {
       if (typeof email !== 'string') {
         throw new HttpError(400, 'email must be a string');
@@ -45,11 +58,12 @@ export const updateUser = (userStore: UserStore) => (req: Request, res: Response
       }
       updates.displayName = displayName;
     }
-    if (role !== undefined) {
-      if (typeof role !== 'string' || !isUserRole(role)) {
-        throw new HttpError(400, 'valid role is required');
+    if (body.roles !== undefined || body.role !== undefined) {
+      const roles = parseRolesBody(body.roles ?? body.role);
+      if (!roles || roles.length === 0) {
+        throw new HttpError(400, 'roles: at least one valid role is required');
       }
-      updates.role = role;
+      updates.roles = roles;
     }
     if (Object.keys(updates).length === 0) {
       throw new HttpError(400, 'At least one field to update is required');

@@ -1,4 +1,4 @@
-import type { UserRole } from '../../auth/roles';
+import { isUserRole, normalizeUserRoles, type UserRole } from '../../auth/roles';
 import { HttpError } from '../errors';
 import { hashPassword } from './password';
 import type { AuthUserPublic, StoredUser } from './types';
@@ -7,22 +7,56 @@ import type { AuthUserPublic, StoredUser } from './types';
 const seedUsers: Array<{
   email: string;
   displayName: string;
-  role: UserRole;
+  roles: UserRole[];
   plainPassword: string;
 }> = [
-  { email: 'admin@fixup.local', displayName: 'Admin FixUp', role: 'administrator', plainPassword: 'admin123' },
-  { email: 'mecanicien@fixup.local', displayName: 'Jean Mécano', role: 'mechanic', plainPassword: 'meca123' },
-  { email: 'administratif@fixup.local', displayName: 'Marie Accueil', role: 'administrative', plainPassword: 'admin123' },
-  { email: 'superviseur@fixup.local', displayName: 'Paul Chef', role: 'supervisor', plainPassword: 'super123' },
-  { email: 'comptable@fixup.local', displayName: 'Sophie Compta', role: 'accountant', plainPassword: 'compta123' },
+  { email: 'admin@fixup.local', displayName: 'Admin FixUp', roles: ['administrator'], plainPassword: 'admin123' },
+  { email: 'mecanicien@fixup.local', displayName: 'Jean Mécano', roles: ['mechanic'], plainPassword: 'meca123' },
+  { email: 'administratif@fixup.local', displayName: 'Marie Accueil', roles: ['administrative'], plainPassword: 'admin123' },
+  { email: 'superviseur@fixup.local', displayName: 'Paul Chef', roles: ['supervisor'], plainPassword: 'super123' },
+  { email: 'comptable@fixup.local', displayName: 'Sophie Compta', roles: ['accountant'], plainPassword: 'compta123' },
 ];
+
+type LegacyStoredUser = StoredUser & { role?: UserRole };
+
+const migrateStoredUser = (u: LegacyStoredUser): StoredUser => {
+  if (Array.isArray(u.roles) && u.roles.length > 0) {
+    const roles = normalizeUserRoles(u.roles);
+    if (roles.length === 0) {
+      throw new Error('Invalid stored user: empty roles');
+    }
+    return {
+      id: u.id,
+      email: u.email,
+      displayName: u.displayName,
+      roles,
+      passwordHash: u.passwordHash,
+    };
+  }
+  if (u.role !== undefined && isUserRole(u.role)) {
+    return {
+      id: u.id,
+      email: u.email,
+      displayName: u.displayName,
+      roles: [u.role],
+      passwordHash: u.passwordHash,
+    };
+  }
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.displayName,
+    roles: ['mechanic'],
+    passwordHash: u.passwordHash,
+  };
+};
 
 const buildInitialUsers = (): StoredUser[] => {
   return seedUsers.map((seed) => ({
     id: crypto.randomUUID(),
     email: seed.email.toLowerCase(),
     displayName: seed.displayName,
-    role: seed.role,
+    roles: seed.roles,
     passwordHash: hashPassword(seed.plainPassword),
   }));
 };
@@ -31,7 +65,8 @@ export class UserStore {
   private users: StoredUser[];
 
   constructor(initialUsers?: StoredUser[]) {
-    this.users = initialUsers ?? buildInitialUsers();
+    const raw = initialUsers ?? buildInitialUsers();
+    this.users = raw.map((u) => migrateStoredUser(u as LegacyStoredUser));
   }
 
   /** Copie pour sérialisation (base locale, sauvegardes). */
@@ -58,14 +93,18 @@ export class UserStore {
   }
 
   private administratorCount(): number {
-    return this.users.filter((u) => u.role === 'administrator').length;
+    return this.users.filter((u) => u.roles.includes('administrator')).length;
   }
 
-  create(input: { email: string; displayName: string; role: UserRole; password: string }): AuthUserPublic {
+  create(input: { email: string; displayName: string; roles: UserRole[]; password: string }): AuthUserPublic {
     const email = input.email.trim().toLowerCase();
     const displayName = input.displayName.trim();
+    const roles = normalizeUserRoles(input.roles);
     if (!email || !displayName) {
       throw new HttpError(400, 'email and displayName are required');
+    }
+    if (roles.length === 0) {
+      throw new HttpError(400, 'at least one role is required');
     }
     if (!input.password || input.password.length < 6) {
       throw new HttpError(400, 'password must be at least 6 characters');
@@ -77,7 +116,7 @@ export class UserStore {
       id: crypto.randomUUID(),
       email,
       displayName,
-      role: input.role,
+      roles,
       passwordHash: hashPassword(input.password),
     };
     this.users.push(user);
@@ -86,7 +125,7 @@ export class UserStore {
 
   update(
     id: string,
-    input: { email?: string; displayName?: string; role?: UserRole },
+    input: { email?: string; displayName?: string; roles?: UserRole[] },
   ): AuthUserPublic {
     const index = this.users.findIndex((u) => u.id === id);
     if (index === -1) {
@@ -108,15 +147,18 @@ export class UserStore {
     if (!displayName) {
       throw new HttpError(400, 'displayName cannot be empty');
     }
-    const role = input.role !== undefined ? input.role : current.role;
-    if (current.role === 'administrator' && role !== 'administrator' && this.administratorCount() <= 1) {
+    const newRoles = input.roles !== undefined ? normalizeUserRoles(input.roles) : current.roles;
+    if (input.roles !== undefined && newRoles.length === 0) {
+      throw new HttpError(400, 'at least one role is required');
+    }
+    if (current.roles.includes('administrator') && !newRoles.includes('administrator') && this.administratorCount() <= 1) {
       throw new HttpError(403, 'Cannot demote the last administrator');
     }
     this.users[index] = {
       ...current,
       email,
       displayName,
-      role,
+      roles: newRoles,
     };
     return this.toPublic(this.users[index]);
   }
@@ -141,7 +183,7 @@ export class UserStore {
       throw new HttpError(404, 'User not found');
     }
     const target = this.users[index];
-    if (target.role === 'administrator' && this.administratorCount() <= 1) {
+    if (target.roles.includes('administrator') && this.administratorCount() <= 1) {
       throw new HttpError(403, 'Cannot delete the last administrator');
     }
     this.users.splice(index, 1);

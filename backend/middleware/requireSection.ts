@@ -10,7 +10,7 @@ export const requireSection = (section: AppSection) => {
       next(new HttpError(401, 'Unauthorized'));
       return;
     }
-    if (!canAccessSection(user.role, section)) {
+    if (!canAccessSection(user.roles, section)) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }

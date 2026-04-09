@@ -1,5 +1,12 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
-import { USER_ROLES, roleLabelsFr, type UserRole } from '../auth/roles';
+import {
+  USER_ROLES,
+  formatRolesLabelFr,
+  normalizeUserRoles,
+  roleDescriptionsFr,
+  roleLabelsFr,
+  type UserRole,
+} from '../auth/roles';
 import type { AuthUser } from '../auth/session';
 import { apiClient } from '../services/api';
 import ConfirmationModal from './ConfirmationModal';
@@ -28,7 +35,7 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<UserRole>('mechanic');
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['mechanic']);
   const [password, setPassword] = useState('');
 
   const load = useCallback(async () => {
@@ -53,7 +60,7 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
       setEditing(null);
       setEmail('');
       setDisplayName('');
-      setRole('mechanic');
+      setSelectedRoles(['mechanic']);
       setPassword('');
       setFormError(null);
       setFormOpen(true);
@@ -64,7 +71,7 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
     setEditing(user);
     setEmail(user.email);
     setDisplayName(user.displayName);
-    setRole(user.role);
+    setSelectedRoles([...user.roles]);
     setPassword('');
     setFormError(null);
     setFormOpen(true);
@@ -80,18 +87,23 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
     e.preventDefault();
     setFormError(null);
     try {
+      const roles = normalizeUserRoles(selectedRoles);
+      if (roles.length === 0) {
+        setFormError('Sélectionnez au moins un rôle.');
+        return;
+      }
       if (!editing) {
         await apiClient.users.create({
           email,
           displayName,
-          role,
+          roles,
           password,
         });
       } else {
         await apiClient.users.update(editing.id, {
           email,
           displayName,
-          role,
+          roles,
         });
         if (password.trim().length > 0) {
           await apiClient.users.setPassword(editing.id, password);
@@ -126,6 +138,12 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
         </div>
       )}
 
+      <p className="mb-4 text-sm text-gray-600 dark:text-gray-400 max-w-3xl">
+        Un compte peut cumuler plusieurs rôles : l’utilisateur dispose alors de l’union des accès (menus et actions). Le
+        rôle « Technicien » couvre l’atelier ; combinez-le par exemple avec « Administratif » si besoin. Les fiches
+        techniciens (Gestion) peuvent être liées au compte pour les affectations.
+      </p>
+
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
         {loading ? (
           <div className="p-12 text-center text-gray-500 dark:text-gray-400">Chargement…</div>
@@ -141,7 +159,7 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
                     <UserCircleIcon className="h-12 w-12 text-gray-400 flex-shrink-0" />
                     <div className="flex-grow min-w-0">
                       <p className="font-semibold text-lg text-gray-900 dark:text-white">{user.displayName}</p>
-                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{roleLabelsFr[user.role]}</p>
+                      <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{formatRolesLabelFr(user.roles)}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-1.5">
                         <MailIcon className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate">{user.email}</span>
@@ -219,21 +237,31 @@ const UserAdminPage = forwardRef<UserAdminPageHandle, UserAdminPageProps>(functi
             />
           </div>
           <div>
-            <label htmlFor="ua-role" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Rôle
-            </label>
-            <select
-              id="ua-role"
-              value={role}
-              onChange={(ev) => setRole(ev.target.value as UserRole)}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white"
-            >
+            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rôles (au moins un)</span>
+            <div className="space-y-2 rounded-md border border-gray-200 dark:border-gray-600 p-3 bg-gray-50 dark:bg-gray-900/40">
               {USER_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {roleLabelsFr[r]}
-                </option>
+                <label key={r} className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-gray-300 dark:border-gray-600"
+                    checked={selectedRoles.includes(r)}
+                    onChange={() => {
+                      setSelectedRoles((prev) => {
+                        const next = prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r];
+                        if (next.length === 0) {
+                          return prev;
+                        }
+                        return normalizeUserRoles(next);
+                      });
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 dark:text-white">{roleLabelsFr[r]}</span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400">{roleDescriptionsFr[r]}</span>
+                  </span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
           <div>
             <label htmlFor="ua-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

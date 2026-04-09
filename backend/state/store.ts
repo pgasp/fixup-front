@@ -1,15 +1,3 @@
-import {
-  seedAppointments,
-  seedClients,
-  seedFinancialTransactions,
-  seedInterventionTemplates,
-  seedInvoices,
-  seedParts,
-  seedPurchaseOrders,
-  seedQuotes,
-  seedRepairOrders,
-  seedTechnicians,
-} from '../../services/seedData';
 import { Settings } from '../../types';
 import { AppDataStore } from '../types';
 
@@ -25,16 +13,16 @@ const defaultSettings: Settings = {
 
 export const createInitialStore = (): AppDataStore => {
   return {
-    clients: structuredClone(seedClients),
-    quotes: structuredClone(seedQuotes),
-    appointments: structuredClone(seedAppointments),
-    repairOrders: structuredClone(seedRepairOrders),
-    invoices: structuredClone(seedInvoices),
-    parts: structuredClone(seedParts),
-    technicians: structuredClone(seedTechnicians),
-    interventionTemplates: structuredClone(seedInterventionTemplates),
-    purchaseOrders: structuredClone(seedPurchaseOrders),
-    transactions: structuredClone(seedFinancialTransactions),
+    clients: [],
+    quotes: [],
+    appointments: [],
+    repairOrders: [],
+    invoices: [],
+    parts: [],
+    technicians: [],
+    interventionTemplates: [],
+    purchaseOrders: [],
+    transactions: [],
     settings: structuredClone(defaultSettings),
   };
 };

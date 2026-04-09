@@ -4,7 +4,7 @@ export interface AuthUserPublic {
   id: string;
   email: string;
   displayName: string;
-  role: UserRole;
+  roles: UserRole[];
 }
 
 export interface StoredUser extends AuthUserPublic {

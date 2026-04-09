@@ -20,7 +20,7 @@ export const login = (userStore: UserStore) => (req: Request, res: Response, nex
       sub: user.id,
       email: user.email,
       displayName: user.displayName,
-      role: user.role,
+      roles: user.roles,
     });
     res.json({ token, user: publicUser });
   } catch (error) {
@@ -30,4 +30,10 @@ export const login = (userStore: UserStore) => (req: Request, res: Response, nex
 
 export const me = (_req: Request, res: Response): void => {
   res.json({ user: _req.authUser });
+};
+
+/** Comptes avec le rôle technicien (clé `mechanic`), pour liaison avec les fiches atelier. */
+export const listTechnicianRoleAppUsers = (userStore: UserStore) => (_req: Request, res: Response): void => {
+  const list = userStore.listPublic().filter((u) => u.roles.includes('mechanic'));
+  res.json(list);
 };

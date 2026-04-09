@@ -74,6 +74,8 @@ export const apiClient = {
         body: JSON.stringify({ email, password }),
       }),
     me: () => request<{ user: AuthSession['user'] }>('/auth/me'),
+    /** Comptes au rôle technicien, pour lier une fiche atelier */
+    technicianAppUsers: () => request<AuthUser[]>('/auth/technician-app-users'),
   },
   clients: {
     list: () => request<Client[]>('/clients'),
@@ -102,9 +104,9 @@ export const apiClient = {
   },
   users: {
     list: () => request<AuthUser[]>('/users'),
-    create: (payload: { email: string; displayName: string; role: AuthUser['role']; password: string }) =>
+    create: (payload: { email: string; displayName: string; roles: AuthUser['roles']; password: string }) =>
       request<AuthUser>('/users', { method: 'POST', body: JSON.stringify(payload) }),
-    update: (id: string, payload: { email?: string; displayName?: string; role?: AuthUser['role'] }) =>
+    update: (id: string, payload: { email?: string; displayName?: string; roles?: AuthUser['roles'] }) =>
       request<AuthUser>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
     setPassword: (id: string, password: string) =>
       request<void>(`/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) }),

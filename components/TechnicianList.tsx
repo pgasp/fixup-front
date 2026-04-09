@@ -1,15 +1,25 @@
 import React from 'react';
+import type { AuthUser } from '../auth/session';
 import { Technician, RepairOrder } from '../types';
 import { PencilIcon, TrashIcon, WrenchIcon, UserCircleIcon, MailIcon, PhoneIcon } from './icons';
 
 interface TechnicianListProps {
   technicians: Technician[];
   repairOrders: RepairOrder[];
+  /** Comptes rôle technicien — pour afficher la liaison fiche / utilisateur */
+  technicianAppUsers: AuthUser[];
   onEdit: (technician: Technician) => void;
   onDelete: (technicianId: string) => void;
 }
 
-const TechnicianList: React.FC<TechnicianListProps> = ({ technicians, repairOrders, onEdit, onDelete }) => {
+const TechnicianList: React.FC<TechnicianListProps> = ({
+  technicians,
+  repairOrders,
+  technicianAppUsers,
+  onEdit,
+  onDelete,
+}) => {
+  const userById = new Map<string, AuthUser>(technicianAppUsers.map((u) => [u.id, u]));
   const sortedTechnicians = [...technicians].sort((a, b) => a.name.localeCompare(b.name));
 
   const assignedRepairsCount = (technicianId: string) => {
@@ -18,9 +28,16 @@ const TechnicianList: React.FC<TechnicianListProps> = ({ technicians, repairOrde
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+      <p className="px-4 pt-4 pb-2 text-sm text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/80">
+        Une fiche technicien sert aux affectations d’interventions. Liez-la au compte applicatif du même intervenant (rôle
+        Technicien), créé sous{' '}
+        <span className="font-medium text-gray-800 dark:text-gray-200">Administration → Utilisateurs</span>.
+      </p>
       <ul className="divide-y divide-gray-200 dark:divide-gray-700">
         {sortedTechnicians.length > 0 ? (
-          sortedTechnicians.map(technician => (
+          sortedTechnicians.map((technician) => {
+            const linkedUser = technician.userId ? userById.get(technician.userId) : undefined;
+            return (
             <li key={technician.id} className="p-4 flex flex-col sm:flex-row justify-between items-start gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
               <div className="flex items-center gap-4 flex-grow">
                 <UserCircleIcon className="h-12 w-12 text-gray-400 flex-shrink-0" />
@@ -28,6 +45,14 @@ const TechnicianList: React.FC<TechnicianListProps> = ({ technicians, repairOrde
                   <p className="font-semibold text-lg text-gray-900 dark:text-white">{technician.name}</p>
                   {technician.specialty && <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{technician.specialty}</p>}
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 space-y-1">
+                    {linkedUser && (
+                      <p className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium">
+                        <UserCircleIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span>
+                          Compte : {linkedUser.displayName} ({linkedUser.email})
+                        </span>
+                      </p>
+                    )}
                     {technician.email && <p className="flex items-center gap-1.5"><MailIcon className="h-3.5 w-3.5" /><span>{technician.email}</span></p>}
                     {technician.phone && <p className="flex items-center gap-1.5"><PhoneIcon className="h-3.5 w-3.5" /><span>{technician.phone}</span></p>}
                   </div>
@@ -48,7 +73,8 @@ const TechnicianList: React.FC<TechnicianListProps> = ({ technicians, repairOrde
                 </div>
               </div>
             </li>
-          ))
+            );
+          })
         ) : (
           <div className="text-center py-16 px-6">
             <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
