@@ -49,6 +49,7 @@ const getPeriodDateRange = (period: string): { start: Date, end: Date } => {
 
 const FinancialChart: React.FC<{data: {label: string, revenue: number, expenses: number}[]}> = ({ data }) => {
     const maxValue = useMemo(() => {
+        if (!data || data.length === 0) return 1;
         const max = Math.max(...data.map(d => Math.max(d.revenue, d.expenses)));
         const paddedMax = max * 1.1; // Add 10% padding to the top
         return paddedMax === 0 ? 1 : paddedMax;
@@ -56,7 +57,7 @@ const FinancialChart: React.FC<{data: {label: string, revenue: number, expenses:
     
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg h-96 flex flex-col">
-            <h3 className="font-semibold text-lg mb-4">Revenus vs Dépenses</h3>
+            <h3 className="font-semibold text-lg mb-4">Performance Annuelle (Année en cours)</h3>
             <div className="flex-grow flex gap-1 items-end border-b border-l border-gray-200 dark:border-gray-700 pb-1 pl-1 relative">
                 {/* Y-axis labels */}
                 <div className="absolute -top-2 -left-1 text-[10px] text-gray-400 h-full flex flex-col justify-between pr-2 text-right w-full pointer-events-none">
@@ -121,7 +122,35 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
         return getPeriodDateRange(period);
     }, [period, customStartDate, customEndDate]);
 
-    const financialData = useMemo(() => {
+    const yearlyChartData = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const data = months.map(m => ({ label: m, revenue: 0, expenses: 0 }));
+
+        invoices.forEach(inv => {
+            if (inv.status === 'paid' && inv.paymentDetails) {
+                const paymentDate = new Date(inv.paymentDetails.date);
+                if (paymentDate.getFullYear() === currentYear) {
+                    const monthIndex = paymentDate.getMonth();
+                    data[monthIndex].revenue += calculateInvoiceTotal(inv);
+                }
+            }
+        });
+
+        purchaseOrders.forEach(po => {
+            if (po.isPaid && po.paymentDate) {
+                const paymentDate = new Date(po.paymentDate);
+                if (paymentDate.getFullYear() === currentYear) {
+                    const monthIndex = paymentDate.getMonth();
+                    data[monthIndex].expenses += calculateOrderTotal(po);
+                }
+            }
+        });
+
+        return data;
+    }, [invoices, purchaseOrders]);
+
+    const periodFinancialData = useMemo(() => {
         const { start, end } = dateRange;
 
         const paidInvoices = invoices.filter(inv => {
@@ -146,28 +175,7 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
             ...paidOrders.map(po => ({ type: 'expense' as const, date: new Date(po.paymentDate!), amount: calculateOrderTotal(po), description: `Commande ${po.orderNumber}` })),
         ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
-        // Chart Data Aggregation
-        let chartData: {label: string, revenue: number, expenses: number}[] = [];
-        if (period === 'this_year') {
-             const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
-             chartData = months.map(m => ({ label: m, revenue: 0, expenses: 0 }));
-             paidInvoices.forEach(inv => chartData[new Date(inv.paymentDetails!.date).getMonth()].revenue += calculateInvoiceTotal(inv));
-             paidOrders.forEach(po => chartData[new Date(po.paymentDate!).getMonth()].expenses += calculateOrderTotal(po));
-        } else {
-             const daysInRange = (end.getTime() - start.getTime()) / (1000 * 3600 * 24);
-             const days = Array.from({ length: Math.ceil(daysInRange) + 1 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
-             chartData = days.map(d => ({ label: d.toLocaleDateString('fr-FR', { day: '2-digit' }), revenue: 0, expenses: 0 }));
-             paidInvoices.forEach(inv => {
-                const dayIndex = Math.floor((new Date(inv.paymentDetails!.date).getTime() - start.getTime()) / (1000 * 3600 * 24));
-                if(chartData[dayIndex]) chartData[dayIndex].revenue += calculateInvoiceTotal(inv);
-             });
-             paidOrders.forEach(po => {
-                 const dayIndex = Math.floor((new Date(po.paymentDate!).getTime() - start.getTime()) / (1000 * 3600 * 24));
-                 if(chartData[dayIndex]) chartData[dayIndex].expenses += calculateOrderTotal(po);
-             });
-        }
-
-        return { revenue, expenses, profit, avgInvoice, transactions, chartData };
+        return { revenue, expenses, profit, avgInvoice, transactions };
 
     }, [invoices, purchaseOrders, dateRange]);
 
@@ -181,46 +189,50 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
     
     return (
         <div className="space-y-6">
-            <div className="flex flex-wrap items-center gap-2">
-                {periodOptions.map(opt => (
-                    <button key={opt.value} onClick={() => setPeriod(opt.value)} className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${period === opt.value ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{opt.label}</button>
-                ))}
-                {period === 'custom' && (
-                    <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-700/50 rounded-lg">
-                        <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md text-sm p-1"/>
-                        <span className="font-semibold">à</span>
-                        <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md text-sm p-1"/>
-                    </div>
-                )}
+            <div className="grid grid-cols-1 gap-6">
+                <FinancialChart data={yearlyChartData} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                 <StatCard title="CA Encaissé" value={`${financialData.revenue.toFixed(2)}€`} icon={<CreditCardIcon className="h-6 w-6 text-green-600 dark:text-green-400"/>} />
-                 <StatCard title="Dépenses" value={`${financialData.expenses.toFixed(2)}€`} icon={<ShoppingCartIcon className="h-6 w-6 text-red-500 dark:text-red-400"/>} />
-                 <StatCard title="Bénéfice" value={`${financialData.profit.toFixed(2)}€`} icon={<WalletIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
-                 <StatCard title="Panier Moyen" value={`${financialData.avgInvoice.toFixed(2)}€`} icon={<ChartBarIcon className="h-6 w-6 text-indigo-500 dark:text-indigo-400"/>} />
+            <hr className="border-gray-200 dark:border-gray-700"/>
+
+            <div>
+                <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Analyse de la période</h3>
+                <div className="flex flex-wrap items-center gap-2 mb-6">
+                    {periodOptions.map(opt => (
+                        <button key={opt.value} onClick={() => setPeriod(opt.value)} className={`px-4 py-1.5 text-sm font-semibold rounded-full transition-colors ${period === opt.value ? 'bg-blue-600 text-white shadow-md' : 'bg-white dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{opt.label}</button>
+                    ))}
+                    {period === 'custom' && (
+                        <div className="flex items-center gap-2 p-2 bg-gray-200 dark:bg-gray-700/50 rounded-lg">
+                            <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md text-sm p-1"/>
+                            <span className="font-semibold">à</span>
+                            <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded-md text-sm p-1"/>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                     <StatCard title="CA Encaissé (période)" value={`${periodFinancialData.revenue.toFixed(2)}€`} icon={<CreditCardIcon className="h-6 w-6 text-green-600 dark:text-green-400"/>} />
+                     <StatCard title="Dépenses (période)" value={`${periodFinancialData.expenses.toFixed(2)}€`} icon={<ShoppingCartIcon className="h-6 w-6 text-red-500 dark:text-red-400"/>} />
+                     <StatCard title="Bénéfice (période)" value={`${periodFinancialData.profit.toFixed(2)}€`} icon={<WalletIcon className="h-6 w-6 text-blue-600 dark:text-blue-400"/>} />
+                     <StatCard title="Panier Moyen (période)" value={`${periodFinancialData.avgInvoice.toFixed(2)}€`} icon={<ChartBarIcon className="h-6 w-6 text-indigo-500 dark:text-indigo-400"/>} />
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <FinancialChart data={financialData.chartData} />
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-                    <h3 className="font-semibold text-lg mb-4">Transactions Récentes</h3>
-                    <ul className="space-y-3 max-h-80 overflow-y-auto">
-                        {financialData.transactions.length > 0 ? financialData.transactions.map((t, i) => (
-                            <li key={i} className="flex justify-between items-center text-sm">
-                                <div>
-                                    <p className="font-semibold">{t.description}</p>
-                                    <p className="text-xs text-gray-500">{t.date.toLocaleDateString()}</p>
-                                </div>
-                                <span className={`font-mono font-semibold ${t.type === 'revenue' ? 'text-green-600' : 'text-red-500'}`}>
-                                    {t.type === 'revenue' ? '+' : '-'}{t.amount.toFixed(2)}€
-                                </span>
-                            </li>
-                        )) : <p className="text-sm text-gray-500 text-center pt-8">Aucune transaction pour cette période.</p>}
-                    </ul>
-                </div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h3 className="font-semibold text-lg mb-4">Transactions Récentes (période)</h3>
+                <ul className="space-y-3 max-h-80 overflow-y-auto">
+                    {periodFinancialData.transactions.length > 0 ? periodFinancialData.transactions.map((t, i) => (
+                        <li key={i} className="flex justify-between items-center text-sm">
+                            <div>
+                                <p className="font-semibold">{t.description}</p>
+                                <p className="text-xs text-gray-500">{t.date.toLocaleDateString()}</p>
+                            </div>
+                            <span className={`font-mono font-semibold ${t.type === 'revenue' ? 'text-green-600' : 'text-red-500'}`}>
+                                {t.type === 'revenue' ? '+' : '-'}{t.amount.toFixed(2)}€
+                            </span>
+                        </li>
+                    )) : <p className="text-sm text-gray-500 text-center pt-8">Aucune transaction pour cette période.</p>}
+                </ul>
             </div>
         </div>
     );

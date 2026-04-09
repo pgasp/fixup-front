@@ -26,6 +26,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, set
   const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
   const taxAmount = subtotal * (quote.taxRate / 100);
   const total = subtotal + taxAmount;
+  const allParts = quote.laborItems.flatMap(labor => labor.partItems);
 
   return (
     <div className="text-sm text-gray-800 dark:text-gray-200">
@@ -91,30 +92,41 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, set
             <thead className="border-b-2 border-gray-300 dark:border-gray-600">
                 <tr className="text-left text-gray-600 dark:text-gray-300">
                     <th className="py-2 font-semibold">Description</th>
-                    <th className="py-2 font-semibold text-center">Qté</th>
-                    <th className="py-2 font-semibold text-right">Prix U. HT</th>
-                    <th className="py-2 font-semibold text-right">Total HT</th>
+                    <th className="py-2 font-semibold text-center w-32">Quantité / Heures</th>
+                    <th className="py-2 font-semibold text-right w-36">Prix U. / Taux HT</th>
+                    <th className="py-2 font-semibold text-right w-36">Total HT</th>
                 </tr>
             </thead>
             <tbody>
-                {quote.laborItems.map(labor => (
-                    <React.Fragment key={labor.id}>
-                        <tr className="font-semibold bg-gray-50 dark:bg-gray-800/50">
-                            <td className="py-2 pl-2">{labor.description} (Main d'œuvre)</td>
-                            <td className="py-2 text-center">{labor.hours.toFixed(2)}h</td>
-                            <td className="py-2 text-right">{labor.rate.toFixed(2)}€/h</td>
-                            <td className="py-2 text-right">{(labor.hours * labor.rate).toFixed(2)}€</td>
-                        </tr>
-                        {labor.partItems.map(part => (
-                            <tr key={part.id}>
-                                <td className="py-1 pl-8">{part.description}</td>
-                                <td className="py-1 text-center">{part.quantity}</td>
-                                <td className="py-1 text-right">{part.unitPrice.toFixed(2)}€</td>
-                                <td className="py-1 text-right">{(part.quantity * part.unitPrice).toFixed(2)}€</td>
-                            </tr>
-                        ))}
-                    </React.Fragment>
-                ))}
+                {/* Section Main d'oeuvre */}
+                <tr className="bg-gray-50 dark:bg-gray-800/50">
+                    <td colSpan={4} className="pt-4 pb-2 px-2 font-bold text-base text-gray-800 dark:text-gray-200">Main d'œuvre</td>
+                </tr>
+                {quote.laborItems.length > 0 ? quote.laborItems.map(labor => (
+                    <tr key={labor.id} className="border-b border-gray-100 dark:border-gray-700/50">
+                        <td className="py-2 pl-4">{labor.description}</td>
+                        <td className="py-2 text-center">{labor.hours.toFixed(2)}h</td>
+                        <td className="py-2 text-right">{labor.rate.toFixed(2)}€/h</td>
+                        <td className="py-2 text-right font-semibold">{(labor.hours * labor.rate).toFixed(2)}€</td>
+                    </tr>
+                )) : (
+                     <tr><td colSpan={4} className="py-2 pl-4 text-sm text-gray-500 italic">Aucune main d'œuvre.</td></tr>
+                )}
+
+                {/* Section Pièces */}
+                <tr className="bg-gray-50 dark:bg-gray-800/50">
+                    <td colSpan={4} className="pt-4 pb-2 px-2 font-bold text-base text-gray-800 dark:text-gray-200">Pièces</td>
+                </tr>
+                {allParts.length > 0 ? allParts.map(part => (
+                    <tr key={part.id} className="border-b border-gray-100 dark:border-gray-700/50">
+                        <td className="py-2 pl-4">{part.description}</td>
+                        <td className="py-2 text-center">{part.quantity}</td>
+                        <td className="py-2 text-right">{part.unitPrice.toFixed(2)}€</td>
+                        <td className="py-2 text-right font-semibold">{(part.quantity * part.unitPrice).toFixed(2)}€</td>
+                    </tr>
+                )) : (
+                    <tr><td colSpan={4} className="py-2 pl-4 text-sm text-gray-500 italic">Aucune pièce.</td></tr>
+                )}
             </tbody>
         </table>
       </section>

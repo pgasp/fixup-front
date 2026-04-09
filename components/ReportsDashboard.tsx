@@ -27,7 +27,7 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
 const getWeekStartAndEnd = (date: Date): { start: Date, end: Date } => {
     const start = new Date(date);
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Lundi comme premier jour
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Monday as first day
     start.setDate(diff);
     start.setHours(0, 0, 0, 0);
 

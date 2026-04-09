@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import { 
     Client, Quote, Appointment, RepairOrder, Invoice, Part, Technician, InterventionTemplate, 
-    VehicleServiceHistory, PurchaseOrder, FinancialTransaction, Settings, RepairOrderStatus, QuoteStatus, VehicleInspectionReport, PaymentDetails
+    VehicleServiceHistory, PurchaseOrder, FinancialTransaction, Settings, RepairOrderStatus, QuoteStatus, VehicleInspectionReport, PaymentDetails, PurchaseOrderItem
 } from './types';
 
 // Import seed data
@@ -34,6 +34,8 @@ import TechnicianList from './components/TechnicianList';
 import TechnicianForm from './components/TechnicianForm';
 import PartList from './components/PartList';
 import PartForm from './components/PartForm';
+import PartPricing from './components/PartPricing';
+import PreOrderList from './components/PreOrderList';
 import PurchaseOrderList from './components/PurchaseOrderList';
 import PurchaseOrderForm from './components/PurchaseOrderForm';
 import PurchaseOrderPaymentForm from './components/PurchaseOrderPaymentForm';
@@ -44,11 +46,11 @@ import SettingsComponent from './components/Settings';
 // Import icons for sidebar
 import { 
     FileTextIcon, UsersIcon, CalendarIcon, WrenchIcon, ReceiptTaxIcon, BookOpenIcon, 
-    BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon
+    BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon, DocumentSearchIcon
 } from './components/icons';
 
 
-type View = 'quotes' | 'clients' | 'scheduler' | 'repair_orders' | 'invoices' | 'templates' | 'technicians' | 'parts' | 'purchase_orders' | 'reports' | 'accounting' | 'settings';
+type View = 'quotes' | 'clients' | 'scheduler' | 'repair_orders' | 'invoices' | 'templates' | 'technicians' | 'parts' | 'part_pricing' | 'pre_orders' | 'purchase_orders' | 'reports' | 'accounting' | 'settings';
 
 const App: React.FC = () => {
     // Main state management using useLocalStorage hook
@@ -404,13 +406,122 @@ const App: React.FC = () => {
         setPartToEdit(null);
     };
 
-    const handleSavePurchaseOrder = (order: PurchaseOrder) => {
+    const handleUpdatePartPrices = (pricedParts: Map<string, { price: number; supplier: string; supplierReference: string; }>) => {
+        const DEFAULT_MARKUP = 1.5; // 50% markup as a default
+    
+        setQuotes(prevQuotes => {
+            const newQuotes = prevQuotes.map(quote => {
+                if (quote.status !== 'awaiting_part_pricing') return quote;
+    
+                let hasPendingParts = false;
+                const updatedLaborItems = quote.laborItems.map(labor => {
+                    const updatedPartItems = labor.partItems.map(part => {
+                        if (part.isPreOrder && part.preOrderStatus === 'pending_pricing') {
+                            const key = `${part.description}_${part.reference || ''}`;
+                            if (pricedParts.has(key)) {
+                                const data = pricedParts.get(key)!;
+                                return {
+                                    ...part,
+                                    unitPrice: data.price * DEFAULT_MARKUP,
+                                    purchasePrice: data.price,
+                                    preOrderStatus: 'priced' as const,
+                                    supplier: data.supplier,
+                                    supplierReference: data.supplierReference,
+                                };
+                            } else {
+                                hasPendingParts = true;
+                                return part;
+                            }
+                        }
+                        return part;
+                    });
+                    return { ...labor, partItems: updatedPartItems };
+                });
+    
+                const newStatus: QuoteStatus = hasPendingParts ? 'awaiting_part_pricing' : 'draft';
+                if(quote.status !== newStatus) {
+                    quote.statusHistory.push({ status: newStatus, date: new Date().toISOString() });
+                }
+
+                return {
+                    ...quote,
+                    laborItems: updatedLaborItems,
+                    status: newStatus,
+                };
+            });
+            return newQuotes;
+        });
+    };
+
+    const handleSavePurchaseOrder = (order: PurchaseOrder, newParts: Part[] = []) => {
+        // 1. Create new parts if any
+        if (newParts.length > 0) {
+            setParts(prev => [...prev, ...newParts]);
+        }
+    
+        // 2. Save purchase order
         setPurchaseOrders(prev => {
             const index = prev.findIndex(po => po.id === order.id);
-            return index > -1 ? prev.map((po, i) => i === index ? order : po) : [...prev, order];
+            if (index > -1) {
+                const newOrders = [...prev];
+                newOrders[index] = order;
+                return newOrders;
+            }
+            return [...prev, order];
         });
+        
         setIsPOFormOpen(false);
         setPOToEdit(null);
+    };
+
+    const handleCreatePurchaseOrderFromPreOrder = (supplier: string, itemsToOrder: { id: string; partId: string; description: string; quantity: number; purchasePrice: number; }[]) => {
+        const newPO: PurchaseOrder = {
+            id: crypto.randomUUID(),
+            orderNumber: nextPurchaseOrderNumber,
+            supplier,
+            date: new Date().toISOString(),
+            status: 'draft',
+            items: itemsToOrder.map(item => ({
+                id: crypto.randomUUID(),
+                partId: item.partId,
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.purchasePrice,
+            })),
+        };
+        setPurchaseOrders(prev => [...prev, newPO]);
+
+        const itemIdsToUpdate = new Set(itemsToOrder.map(item => item.id));
+        setQuotes(prevQuotes =>
+            prevQuotes.map(quote => {
+                let quoteWasModified = false;
+                const updatedLaborItems = quote.laborItems.map(labor => {
+                    let laborWasModified = false;
+                    const updatedPartItems = labor.partItems.map(part => {
+                        if (
+                            part.preOrderStatus === 'priced' &&
+                            part.supplier === supplier &&
+                            itemIdsToUpdate.has(part.id)
+                        ) {
+                            laborWasModified = true;
+                            quoteWasModified = true;
+                            return { ...part, preOrderStatus: 'ordered' as const };
+                        }
+                        return part;
+                    });
+                    if (laborWasModified) {
+                        return { ...labor, partItems: updatedPartItems };
+                    }
+                    return labor;
+                });
+                if (quoteWasModified) {
+                    return { ...quote, laborItems: updatedLaborItems };
+                }
+                return quote;
+            })
+        );
+        
+        alert(`Bon de commande ${newPO.orderNumber} créé pour ${supplier}.`);
     };
 
     const handleReceivePO = (orderId: string) => {
@@ -546,10 +657,20 @@ const App: React.FC = () => {
                             supplier: part.supplier, 
                             date: new Date().toISOString(), 
                             status: 'draft', 
-                            items: [{ id: crypto.randomUUID(), partId: part.id, quantity: 10, unitPrice: part.purchasePrice }]
+                            items: [{ id: crypto.randomUUID(), partId: part.id, description: part.name, quantity: 10, unitPrice: part.purchasePrice }]
                         });
                         setIsPOFormOpen(true);
                     }}
+                />;
+            case 'part_pricing':
+                return <PartPricing
+                    quotes={quotes}
+                    onUpdatePrices={handleUpdatePartPrices}
+                />;
+            case 'pre_orders':
+                return <PreOrderList 
+                    quotes={quotes}
+                    onCreatePurchaseOrder={handleCreatePurchaseOrderFromPreOrder}
                 />;
             case 'purchase_orders':
                 return <PurchaseOrderList
@@ -595,6 +716,8 @@ const App: React.FC = () => {
                 { view: 'quotes', label: 'Devis', icon: FileTextIcon },
                 { view: 'invoices', label: 'Factures', icon: ReceiptTaxIcon },
                 { view: 'purchase_orders', label: 'Commandes', icon: ShoppingCartIcon },
+                { view: 'part_pricing', label: 'Cotations Pièces', icon: DocumentSearchIcon },
+                { view: 'pre_orders', label: 'Pré-commandes', icon: ShoppingCartIcon },
                 { view: 'clients', label: 'Clients', icon: UsersIcon },
                 { view: 'technicians', label: 'Techniciens', icon: UsersIcon },
             ]
@@ -754,8 +877,7 @@ const App: React.FC = () => {
                 isOpen={isStatusModalOpen}
                 onClose={() => setIsStatusModalOpen(false)}
                 onConfirm={handleStatusChange}
-                currentStatus={quoteForStatusChange?.status || 'draft'}
-                quoteNumber={quoteForStatusChange?.quoteNumber || ''}
+                quoteForStatusChange={quoteForStatusChange}
             />
             <AppointmentForm
                 isOpen={isAppointmentFormOpen}
@@ -801,6 +923,7 @@ const App: React.FC = () => {
                 onSave={handleSavePurchaseOrder}
                 parts={parts}
                 existingOrder={poToEdit}
+                // FIX: Correct variable name from nextOrderNumber to nextPurchaseOrderNumber
                 nextOrderNumber={nextPurchaseOrderNumber}
             />
             <PurchaseOrderPaymentForm

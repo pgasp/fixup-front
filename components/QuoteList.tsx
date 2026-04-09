@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Quote, Client, QuoteStatus, Appointment } from '../types';
-import { FileTextIcon, PencilIcon, TrashIcon, CheckCircleIcon, XIcon, SearchIcon } from './icons';
+// FIX: Add missing CalendarIcon and WrenchIcon imports.
+import { FileTextIcon, PencilIcon, TrashIcon, CheckCircleIcon, XIcon, SearchIcon, ClockIcon, PaperPlaneIcon, CalendarIcon, WrenchIcon, ClipboardCheckIcon } from './icons';
 
 interface QuoteListProps {
   quotes: Quote[];
@@ -15,8 +16,10 @@ interface QuoteListProps {
 }
 
 const statusConfig: { [key in QuoteStatus]: { text: string; color: string; icon?: React.FC<{className?:string}> } } = {
-    draft: { text: 'Brouillon', color: 'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700' },
-    sent: { text: 'Envoyé', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50' },
+    draft: { text: 'Brouillon', color: 'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: FileTextIcon },
+    ready_to_send: { text: 'Prêt pour envoi', color: 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/50', icon: ClipboardCheckIcon },
+    awaiting_part_pricing: { text: 'Attente cotation', color: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/50', icon: ClockIcon },
+    sent: { text: 'Envoyé', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: PaperPlaneIcon },
     approved: { text: 'Approuvé', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
     rejected: { text: 'Rejeté', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: XIcon },
 };
@@ -24,6 +27,8 @@ const statusConfig: { [key in QuoteStatus]: { text: string; color: string; icon?
 const statusFilters: { value: QuoteStatus | 'all', label: string }[] = [
     { value: 'all', label: 'Tous' },
     { value: 'draft', label: 'Brouillons' },
+    { value: 'ready_to_send', label: 'Prêts pour envoi' },
+    { value: 'awaiting_part_pricing', label: 'Attente cotation' },
     { value: 'sent', label: 'Envoyés' },
     { value: 'approved', label: 'Approuvés' },
     { value: 'rejected', label: 'Rejetés' },
@@ -118,47 +123,56 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
             {sortedAndFilteredQuotes.length > 0 ? sortedAndFilteredQuotes.map(quote => {
                 const Icon = statusConfig[quote.status].icon;
                 const quoteAppointment = appointments.find(a => a.quoteId === quote.id);
+                const isEditable = quote.status === 'draft' || quote.status === 'awaiting_part_pricing';
                 return (
-                <li key={quote.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${quote.isConvertedToRepairOrder ? 'opacity-60' : ''}`}>
-                    <div className="flex-grow">
-                        <p className="font-bold text-lg text-gray-900 dark:text-white">{quote.quoteNumber}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{clientMap.get(quote.clientId)?.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(quote.date).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
-                        <div className="flex sm:flex-col items-start sm:items-end gap-2">
-                             <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{calculateTotal(quote).toFixed(2)}€</p>
-                             <span 
-                                onClick={() => onChangeStatus(quote.id)} 
-                                title="Changer le statut"
-                                className={`inline-flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity text-xs font-medium px-3 py-1 rounded-full ${statusConfig[quote.status].color}`}>
-                                {Icon && <Icon className="w-3.5 h-3.5"/>}
-                                {statusConfig[quote.status].text}
-                            </span>
+                    <li key={quote.id} className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${quote.isConvertedToRepairOrder ? 'opacity-60' : ''}`}>
+                        <div className="flex-grow">
+                            <p className="font-bold text-lg text-gray-900 dark:text-white">{quote.quoteNumber}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{quote.clientName}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Date: {new Date(quote.date).toLocaleDateString()}</p>
                         </div>
-                       
-                        <div className="flex items-center justify-end gap-1 border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-gray-700 pt-3 sm:pt-0 sm:pl-3">
-                            {quote.status === 'approved' && !quoteAppointment && (
-                                <button onClick={() => onSchedule(quote)} className="px-3 py-2 text-sm bg-green-500 text-white rounded-md hover:bg-green-600">Planifier RDV</button>
-                            )}
-                            {quote.status === 'approved' && quoteAppointment && !quote.isConvertedToRepairOrder && (
-                                <button onClick={() => onCreateRepairOrder(quote.id)} className="px-3 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Créer Fiche Réparation</button>
-                            )}
-                            <button onClick={() => onView(quote)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Voir le devis"><FileTextIcon className="h-5 w-5"/></button>
-                            {!quote.isConvertedToRepairOrder && (
-                                <>
-                                <button onClick={() => onEdit(quote)} className="p-2 text-gray-500 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Modifier le devis"><PencilIcon className="h-5 w-5"/></button>
-                                <button onClick={() => onDelete(quote.id)} className="p-2 text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Supprimer le devis"><TrashIcon className="h-5 w-5"/></button>
-                                </>
-                            )}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
+                            <div className="flex sm:flex-col items-start sm:items-end gap-2">
+                                <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{quote.total.toFixed(2)}€</p>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); onChangeStatus(quote.id); }}
+                                    title="Changer le statut"
+                                    className={`inline-flex items-center gap-1.5 cursor-pointer transition-opacity hover:opacity-80 text-xs font-medium px-3 py-1 rounded-full ${statusConfig[quote.status].color}`}>
+                                    {Icon && <Icon className="w-3.5 h-3.5"/>}
+                                    {statusConfig[quote.status].text}
+                                </button>
+                            </div>
+                            
+                            <div className="flex items-center justify-end gap-1 border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-gray-700 pt-3 sm:pt-0 sm:pl-3">
+                                {quote.status === 'approved' && !quote.isConvertedToRepairOrder && !quoteAppointment && (
+                                    <button onClick={() => onSchedule(quote)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Planifier l'intervention"><CalendarIcon className="h-5 w-5"/></button>
+                                )}
+                                 {quote.status === 'approved' && !quote.isConvertedToRepairOrder && quoteAppointment && (
+                                    <button onClick={() => onCreateRepairOrder(quote.id)} className="p-2 text-gray-500 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Créer la fiche de réparation"><WrenchIcon className="h-5 w-5"/></button>
+                                )}
+                                <button onClick={() => onView(quote)} className="p-2 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Voir le devis"><FileTextIcon className="h-5 w-5"/></button>
+                                <button 
+                                    onClick={() => onEdit(quote)} 
+                                    disabled={!isEditable}
+                                    className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                        isEditable
+                                        ? 'text-gray-500 hover:text-green-600 dark:hover:text-green-400'
+                                        : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                    }`}
+                                    title={isEditable ? "Modifier" : "Ce devis ne peut plus être modifié"}
+                                >
+                                    <PencilIcon className="h-5 w-5"/>
+                                </button>
+                                <button onClick={() => onDelete(quote.id)} className="p-2 text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Supprimer"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
                         </div>
-                    </div>
-                </li>
-            )}) : (
+                    </li>
+                )
+            }) : (
                 <div className="text-center py-16 px-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
                     <FileTextIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"/>
                     <h3 className="text-xl font-semibold mt-4">Aucun devis trouvé</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mt-2">Ajustez vos filtres ou cliquez sur "Nouveau devis" pour commencer.</p>
+                    <p className="text-gray-500 dark:text-gray-400 mt-2">Ajustez vos filtres ou créez un nouveau devis.</p>
                 </div>
             )}
         </ul>

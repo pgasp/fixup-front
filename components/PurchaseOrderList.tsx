@@ -36,7 +36,10 @@ const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, o
                 return (
                 <li key={order.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="flex-grow">
-                        <p className="font-bold text-lg text-gray-900 dark:text-white">{order.orderNumber}</p>
+                        <p className="font-bold text-lg text-gray-900 dark:text-white">
+                            {order.orderNumber}
+                            {order.supplierOrderNumber && <span className="text-sm font-normal text-gray-500 dark:text-gray-400 ml-2">({order.supplierOrderNumber})</span>}
+                        </p>
                         <p className="text-sm text-gray-600 dark:text-gray-300">{order.supplier}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Date: {new Date(order.date).toLocaleDateString()} | Prévu le: {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString() : 'N/A'}

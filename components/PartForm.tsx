@@ -21,6 +21,7 @@ const PartForm: React.FC<PartFormProps> = ({ isOpen, onClose, onSave, existingPa
     sellingPrice: 0,
     markupPercentage: 0,
   });
+  const [infoMessage, setInfoMessage] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -29,19 +30,33 @@ const PartForm: React.FC<PartFormProps> = ({ isOpen, onClose, onSave, existingPa
       } else {
         setPart({ name: '', reference: '', supplier: '', stock: 0, purchasePrice: 0, pricingMethod: 'fixed', sellingPrice: 0, markupPercentage: 25 });
       }
+      setInfoMessage('');
     }
   }, [existingPart, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
-    setPart(prev => ({ 
-        ...prev, 
-        [name]: type === 'number' ? parseFloat(value) || 0 : value 
-    }));
+    const numericValue = parseFloat(value) || 0;
+
+    if (name === "sellingPrice") {
+        setPart(prev => {
+            if (prev.pricingMethod === 'markup') {
+                setInfoMessage('Le prix a été ajusté manuellement. La tarification est passée en "Prix Fixe".');
+                return { ...prev, sellingPrice: numericValue, pricingMethod: 'fixed' };
+            }
+            return { ...prev, sellingPrice: numericValue };
+        });
+    } else {
+        setPart(prev => ({ 
+            ...prev, 
+            [name]: type === 'number' ? numericValue : value 
+        }));
+    }
   };
 
   const handlePricingMethodChange = (method: 'fixed' | 'markup') => {
     setPart(prev => ({...prev, pricingMethod: method}));
+    setInfoMessage('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -56,6 +71,10 @@ const PartForm: React.FC<PartFormProps> = ({ isOpen, onClose, onSave, existingPa
     };
     onSave(partToSave);
   };
+
+  const calculatedSellingPrice = part.pricingMethod === 'markup' 
+    ? part.purchasePrice * (1 + (part.markupPercentage || 0) / 100)
+    : part.sellingPrice || 0;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={existingPart ? 'Modifier la pièce' : 'Nouvelle pièce'}>
@@ -82,17 +101,24 @@ const PartForm: React.FC<PartFormProps> = ({ isOpen, onClose, onSave, existingPa
                 <button type="button" onClick={() => handlePricingMethodChange('fixed')} className={`flex-1 py-2 rounded-md font-semibold ${part.pricingMethod === 'fixed' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Prix Fixe</button>
                 <button type="button" onClick={() => handlePricingMethodChange('markup')} className={`flex-1 py-2 rounded-md font-semibold ${part.pricingMethod === 'markup' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Marge en %</button>
             </div>
-            {part.pricingMethod === 'fixed' ? (
-                <div>
-                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Prix de vente HT</label>
-                    <input name="sellingPrice" type="number" step="0.01" value={part.sellingPrice || 0} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3" />
-                </div>
-            ) : (
-                <div>
+            {part.pricingMethod === 'markup' && (
+                <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Marge en % (sur prix d'achat)</label>
                     <input name="markupPercentage" type="number" step="0.1" value={part.markupPercentage || 0} onChange={handleChange} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3" />
                 </div>
             )}
+            <div>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Prix de vente HT</label>
+                <input 
+                    name="sellingPrice" 
+                    type="number" 
+                    step="0.01" 
+                    value={calculatedSellingPrice.toFixed(2)} 
+                    onChange={handleChange} 
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3" 
+                />
+                 {infoMessage && <p className="text-xs text-green-600 dark:text-green-400 mt-1">{infoMessage}</p>}
+            </div>
           </div>
         </div>
         <div className="mt-8 flex justify-end gap-4">

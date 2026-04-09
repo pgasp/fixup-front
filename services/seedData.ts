@@ -41,7 +41,7 @@ export const seedParts: Part[] = [
     { id: 'part-11', name: 'Batterie Varta Blue 74Ah', reference: 'VAR-574012068', supplier: SUPPLIERS[4], stock: 8, purchasePrice: 75.00, pricingMethod: 'markup', markupPercentage: 40 },
     { id: 'part-12', name: 'Filtre d\'habitacle charbon', reference: 'BOS-1987432314', supplier: SUPPLIERS[4], stock: 35, purchasePrice: 18.00, pricingMethod: 'markup', markupPercentage: 60 },
     { id: 'part-13', name: 'Alternateur', reference: 'BOS-0986041810', supplier: SUPPLIERS[4], stock: 2, purchasePrice: 180.00, pricingMethod: 'fixed', sellingPrice: 320.00 },
-    { id: 'part-14', name: 'Démarreur', reference: 'VAL-438171', supplier: SUPPLIERS[3], stock: 3, purchasePrice: 150.00, pricingMethod: 'fixed', sellingPrice: 280.00 },
+    { id: 'part-14', name: 'Démarreur', reference: 'VAL-438171', supplier: SUPPLIERS[3], stock: 0, purchasePrice: 150.00, pricingMethod: 'fixed', sellingPrice: 280.00 },
     { id: 'part-15', name: 'Liquide de refroidissement (5L)', reference: 'MOT-INUGEL', supplier: SUPPLIERS[1], stock: 22, purchasePrice: 15.00, pricingMethod: 'markup', markupPercentage: 70 },
 ];
 
@@ -87,7 +87,7 @@ const serviceHistories: { [vehicleId: string]: VehicleServiceHistory[] } = {};
 
 // SCENARIO 1: Quote -> Approved -> Scheduled -> In Progress
 const q1_date = addDays(TODAY, -10);
-const q1: Quote = { id: 'q1', quoteNumber: 'DEV-00101', clientId: 'c1', vehicleId: 'v1', date: q1_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q1_date.toISOString()}, {status: 'sent', date: q1_date.toISOString()}, {status: 'approved', date: addDays(q1_date, 2).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-1')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q1: Quote = { id: 'q1', quoteNumber: 'DEV-00101', clientId: 'c1', vehicleId: 'v1', date: q1_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q1_date.toISOString()}, {status: 'ready_to_send', date: q1_date.toISOString()},{status: 'sent', date: q1_date.toISOString()}, {status: 'approved', date: addDays(q1_date, 2).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-1')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q1);
 const appt1_date = addDays(TODAY, -5);
 const appt1: Appointment = { id: 'appt1', title: `Vidange - Clio V`, start: appt1_date.toISOString(), end: addDays(appt1_date, 1/24 * 2).toISOString(), quoteId: 'q1', clientId: 'c1', vehicleId: 'v1' };
@@ -97,7 +97,7 @@ repairOrders.push(ro1);
 
 // SCENARIO 2: Quote -> Approved -> Scheduled -> Waiting for Part (Amortisseurs stock=0)
 const q2_date = addDays(TODAY, -8);
-const q2: Quote = { id: 'q2', quoteNumber: 'DEV-00102', clientId: 'c2', vehicleId: 'v3', date: q2_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q2_date.toISOString()}, {status: 'sent', date: q2_date.toISOString()}, {status: 'approved', date: addDays(q2_date, 1).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-8')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q2: Quote = { id: 'q2', quoteNumber: 'DEV-00102', clientId: 'c2', vehicleId: 'v3', date: q2_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q2_date.toISOString()}, {status: 'ready_to_send', date: q2_date.toISOString()}, {status: 'sent', date: q2_date.toISOString()}, {status: 'approved', date: addDays(q2_date, 1).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-8')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q2);
 const appt2_date = addDays(TODAY, -2);
 const appt2: Appointment = { id: 'appt2', title: `Amortisseurs - 208`, start: appt2_date.toISOString(), end: addDays(appt2_date, 1/24 * 3).toISOString(), quoteId: 'q2', clientId: 'c2', vehicleId: 'v3' };
@@ -107,7 +107,7 @@ repairOrders.push(ro2);
 
 // SCENARIO 3: Full flow -> Paid Invoice
 const q3_date = addDays(TODAY, -45);
-const q3: Quote = { id: 'q3', quoteNumber: 'DEV-00103', clientId: 'c3', vehicleId: 'v4', date: q3_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q3_date.toISOString()}, {status: 'sent', date: q3_date.toISOString()}, {status: 'approved', date: addDays(q3_date, 5).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-3')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q3: Quote = { id: 'q3', quoteNumber: 'DEV-00103', clientId: 'c3', vehicleId: 'v4', date: q3_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q3_date.toISOString()}, {status: 'ready_to_send', date: q3_date.toISOString()}, {status: 'sent', date: q3_date.toISOString()}, {status: 'approved', date: addDays(q3_date, 5).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-3')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q3);
 const appt3_date = addDays(TODAY, -35);
 const appt3: Appointment = { id: 'appt3', title: `Freinage - C3`, start: appt3_date.toISOString(), end: addDays(appt3_date, 1/24 * 2.5).toISOString(), quoteId: 'q3', clientId: 'c3', vehicleId: 'v4' };
@@ -124,7 +124,7 @@ serviceHistories[q3.vehicleId].push({id: 'sh1', date: inv3.date, mileage: ro3.mi
 
 // SCENARIO 4: Full flow -> Unpaid Invoice (Due)
 const q4_date = addDays(TODAY, -60);
-const q4: Quote = { id: 'q4', quoteNumber: 'DEV-00104', clientId: 'c4', vehicleId: 'v6', date: q4_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q4_date.toISOString()}, {status: 'sent', date: q4_date.toISOString()}, {status: 'approved', date: addDays(q4_date, 3).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-5')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q4: Quote = { id: 'q4', quoteNumber: 'DEV-00104', clientId: 'c4', vehicleId: 'v6', date: q4_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q4_date.toISOString()}, {status: 'ready_to_send', date: q4_date.toISOString()}, {status: 'sent', date: q4_date.toISOString()}, {status: 'approved', date: addDays(q4_date, 3).toISOString()}], isConvertedToRepairOrder: true, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-5')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q4);
 const appt4_date = addDays(TODAY, -50);
 const appt4: Appointment = { id: 'appt4', title: `Distribution - Golf 8`, start: appt4_date.toISOString(), end: addDays(appt4_date, 1/24 * 5).toISOString(), quoteId: 'q4', clientId: 'c4', vehicleId: 'v6' };
@@ -139,7 +139,7 @@ serviceHistories[q4.vehicleId].push({id: 'sh2', date: inv4.date, mileage: ro4.mi
 
 // SCENARIO 5: Simple Sent Quote
 const q5_date = addDays(TODAY, -3);
-const q5: Quote = { id: 'q5', quoteNumber: 'DEV-00105', clientId: 'c5', vehicleId: 'v7', date: q5_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'sent', statusHistory: [{status: 'draft', date: q5_date.toISOString()}, {status: 'sent', date: q5_date.toISOString()}], laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-2')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q5: Quote = { id: 'q5', quoteNumber: 'DEV-00105', clientId: 'c5', vehicleId: 'v7', date: q5_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'sent', statusHistory: [{status: 'draft', date: q5_date.toISOString()}, {status: 'ready_to_send', date: q5_date.toISOString()}, {status: 'sent', date: q5_date.toISOString()}], laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-2')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q5);
 
 // SCENARIO 6: Draft Quote
@@ -148,13 +148,171 @@ quotes.push(q6);
 
 // SCENARIO 7: Rejected Quote
 const q7_date = addDays(TODAY, -15);
-const q7: Quote = { id: 'q7', quoteNumber: 'DEV-00107', clientId: 'c3', vehicleId: 'v5', date: q7_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'rejected', statusHistory: [{status: 'draft', date: q7_date.toISOString()}, {status: 'sent', date: q7_date.toISOString()}, {status: 'rejected', date: addDays(q7_date, 4).toISOString()}], laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-7')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q7: Quote = { id: 'q7', quoteNumber: 'DEV-00107', clientId: 'c3', vehicleId: 'v5', date: q7_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'rejected', statusHistory: [{status: 'draft', date: q7_date.toISOString()}, {status: 'ready_to_send', date: q7_date.toISOString()}, {status: 'sent', date: q7_date.toISOString()}, {status: 'rejected', date: addDays(q7_date, 4).toISOString()}], laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-7')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q7);
 
 // SCENARIO 8: Approved, but not yet scheduled
 const q8_date = addDays(TODAY, -1);
-const q8: Quote = { id: 'q8', quoteNumber: 'DEV-00108', clientId: 'c2', vehicleId: 'v3', date: q8_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q8_date.toISOString()}, {status: 'sent', date: q8_date.toISOString()}, {status: 'approved', date: TODAY.toISOString()}], isConvertedToRepairOrder: false, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-6')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
+const q8: Quote = { id: 'q8', quoteNumber: 'DEV-00108', clientId: 'c2', vehicleId: 'v3', date: q8_date.toISOString(), validityDuration: 30, taxRate: 20, status: 'approved', statusHistory: [{status: 'draft', date: q8_date.toISOString()}, {status: 'ready_to_send', date: q8_date.toISOString()}, {status: 'sent', date: q8_date.toISOString()}, {status: 'approved', date: TODAY.toISOString()}], isConvertedToRepairOrder: false, laborItems: seedInterventionTemplates.find(t=>t.id==='tpl-6')!.laborItems.map(li => ({...li, id: crypto.randomUUID()})) };
 quotes.push(q8);
+
+// SCENARIO 9: Awaiting Part Pricing
+const q9_date = addDays(TODAY, -1);
+const q9: Quote = {
+    id: 'q9',
+    quoteNumber: 'DEV-00109',
+    clientId: 'c4',
+    vehicleId: 'v6',
+    date: q9_date.toISOString(),
+    validityDuration: 30,
+    taxRate: 20,
+    status: 'awaiting_part_pricing',
+    statusHistory: [
+        { status: 'draft', date: q9_date.toISOString() },
+        { status: 'awaiting_part_pricing', date: q9_date.toISOString() }
+    ],
+    isConvertedToRepairOrder: false,
+    laborItems: [
+        {
+            id: crypto.randomUUID(),
+            description: "Remplacement Amortisseurs AV et roulement de roue",
+            hours: 3.5,
+            rate: 70,
+            partItems: [
+                { // Existing part but out of stock
+                    id: crypto.randomUUID(),
+                    partId: 'part-8',
+                    description: 'Amortisseurs AV (Paire)',
+                    quantity: 1,
+                    unitPrice: 0,
+                    reference: seedParts.find(p => p.id === 'part-8')?.reference,
+                    isPreOrder: true,
+                    preOrderStatus: 'pending_pricing',
+                    supplier: seedParts.find(p => p.id === 'part-8')?.supplier,
+                },
+                { // Custom part, not in stock
+                    id: crypto.randomUUID(),
+                    partId: 'CUSTOM_PART',
+                    description: 'Roulement de roue SKF',
+                    quantity: 1,
+                    unitPrice: 0,
+                    reference: 'VKBA 3643',
+                    isPreOrder: true,
+                    preOrderStatus: 'pending_pricing',
+                }
+            ]
+        }
+    ]
+};
+quotes.push(q9);
+
+// SCENARIO 10: Pre-ordered part, now ready to send
+const alternateurPart = seedParts.find(p => p.id === 'part-13')!;
+const q10_date = addDays(TODAY, -2);
+const q10: Quote = {
+    id: 'q10',
+    quoteNumber: 'DEV-00110',
+    clientId: 'c5',
+    vehicleId: 'v7',
+    date: q10_date.toISOString(),
+    validityDuration: 30,
+    taxRate: 20,
+    status: 'ready_to_send',
+    statusHistory: [{ status: 'draft', date: q10_date.toISOString() }, {status: 'ready_to_send', date: q10_date.toISOString()}],
+    isConvertedToRepairOrder: false,
+    laborItems: [{
+        id: crypto.randomUUID(),
+        description: "Remplacement Alternateur",
+        hours: 2,
+        rate: 75,
+        partItems: [{
+            id: crypto.randomUUID(),
+            partId: alternateurPart.id,
+            description: alternateurPart.name,
+            quantity: 1,
+            unitPrice: calculatePartSellingPrice(alternateurPart),
+            purchasePrice: alternateurPart.purchasePrice,
+            reference: alternateurPart.reference,
+            isPreOrder: true,
+            preOrderStatus: 'priced',
+            supplier: alternateurPart.supplier,
+            supplierReference: 'ALT-123-BOSCH'
+        }]
+    }]
+};
+quotes.push(q10);
+
+
+// SCENARIO 11 & 12: More priced parts to populate PreOrderList
+const filtreHabitaclePart = seedParts.find(p => p.id === 'part-12')!;
+const q11_date = addDays(TODAY, -2);
+const q11: Quote = {
+    id: 'q11',
+    quoteNumber: 'DEV-00111',
+    clientId: 'c1',
+    vehicleId: 'v2',
+    date: q11_date.toISOString(),
+    validityDuration: 30,
+    taxRate: 20,
+    status: 'draft',
+    statusHistory: [{ status: 'draft', date: q11_date.toISOString() }],
+    isConvertedToRepairOrder: false,
+    laborItems: [{
+        id: crypto.randomUUID(),
+        description: "Remplacement filtre d'habitacle",
+        hours: 0.5,
+        rate: 60,
+        partItems: [{
+            id: crypto.randomUUID(),
+            partId: filtreHabitaclePart.id,
+            description: filtreHabitaclePart.name,
+            quantity: 1,
+            unitPrice: calculatePartSellingPrice(filtreHabitaclePart),
+            purchasePrice: filtreHabitaclePart.purchasePrice,
+            reference: filtreHabitaclePart.reference,
+            isPreOrder: true,
+            preOrderStatus: 'priced',
+            supplier: filtreHabitaclePart.supplier,
+            supplierReference: 'FIL-456-BOSCH'
+        }]
+    }]
+};
+quotes.push(q11);
+
+const demarreurPart = seedParts.find(p => p.id === 'part-14')!;
+const q12_date = addDays(TODAY, -2);
+const q12: Quote = {
+    id: 'q12',
+    quoteNumber: 'DEV-00112',
+    clientId: 'c3',
+    vehicleId: 'v5',
+    date: q12_date.toISOString(),
+    validityDuration: 30,
+    taxRate: 20,
+    status: 'draft',
+    statusHistory: [{ status: 'draft', date: q12_date.toISOString() }],
+    isConvertedToRepairOrder: false,
+    laborItems: [{
+        id: crypto.randomUUID(),
+        description: "Remplacement Démarreur",
+        hours: 1.5,
+        rate: 75,
+        partItems: [{
+            id: crypto.randomUUID(),
+            partId: demarreurPart.id,
+            description: demarreurPart.name,
+            quantity: 1,
+            unitPrice: calculatePartSellingPrice(demarreurPart),
+            purchasePrice: demarreurPart.purchasePrice,
+            reference: demarreurPart.reference,
+            isPreOrder: true,
+            preOrderStatus: 'priced',
+            supplier: demarreurPart.supplier,
+            supplierReference: 'DEM-789-VAL'
+        }]
+    }]
+};
+quotes.push(q12);
 
 
 // Integrate service histories into clients
@@ -168,11 +326,11 @@ seedClients.forEach(c => {
 
 // --- PURCHASE ORDERS ---
 export const seedPurchaseOrders: PurchaseOrder[] = [
-    { id: 'po1', orderNumber: 'CMD-00201', supplier: SUPPLIERS[2], date: addDays(TODAY, -20).toISOString(), expectedDeliveryDate: addDays(TODAY, -12).toISOString(), status: 'received', items: [{id: 'poi1', partId: 'part-8', quantity: 5, unitPrice: 120.00}], isPaid: true, paymentDate: addDays(TODAY, -10).toISOString()},
-    { id: 'po2', orderNumber: 'CMD-00202', supplier: SUPPLIERS[1], date: addDays(TODAY, -5).toISOString(), expectedDeliveryDate: addDays(TODAY, 2).toISOString(), status: 'ordered', items: [{id: 'poi2', partId: 'part-6', quantity: 10, unitPrice: 15.00}], isPaid: false },
-    { id: 'po3', orderNumber: 'CMD-00203', supplier: SUPPLIERS[0], date: addDays(TODAY, -40).toISOString(), expectedDeliveryDate: addDays(TODAY, -30).toISOString(), status: 'received', items: [{id: 'poi3', partId: 'part-10', quantity: 8, unitPrice: 90.00}], isPaid: true, paymentDate: addDays(TODAY, -25).toISOString()},
-    { id: 'po4', orderNumber: 'CMD-00204', supplier: SUPPLIERS[4], date: addDays(TODAY, -65).toISOString(), expectedDeliveryDate: addDays(TODAY, -55).toISOString(), status: 'received', items: [{id: 'poi4', partId: 'part-11', quantity: 10, unitPrice: 75.00}], isPaid: true, paymentDate: addDays(TODAY, -50).toISOString()},
-    { id: 'po5', orderNumber: 'CMD-00205', supplier: SUPPLIERS[3], date: addDays(TODAY, -1).toISOString(), expectedDeliveryDate: addDays(TODAY, 7).toISOString(), status: 'draft', items: [{id: 'poi5', partId: 'part-9', quantity: 2, unitPrice: 250.00}], isPaid: false },
+    { id: 'po1', orderNumber: 'CMD-00201', supplierOrderNumber: 'FA-12345', supplier: SUPPLIERS[2], date: addDays(TODAY, -20).toISOString(), expectedDeliveryDate: addDays(TODAY, -12).toISOString(), status: 'received', items: [{id: 'poi1', partId: 'part-8', description: seedParts.find(p=>p.id==='part-8')!.name, quantity: 5, unitPrice: 120.00}], isPaid: true, paymentDate: addDays(TODAY, -10).toISOString()},
+    { id: 'po2', orderNumber: 'CMD-00202', supplierOrderNumber: 'CMD-MA-6789', supplier: SUPPLIERS[1], date: addDays(TODAY, -5).toISOString(), expectedDeliveryDate: addDays(TODAY, 2).toISOString(), status: 'ordered', items: [{id: 'poi2', partId: 'part-6', description: seedParts.find(p=>p.id==='part-6')!.name, quantity: 10, unitPrice: 15.00}], isPaid: false },
+    { id: 'po3', orderNumber: 'CMD-00203', supplierOrderNumber: 'OSC-ABCDE', supplier: SUPPLIERS[0], date: addDays(TODAY, -40).toISOString(), expectedDeliveryDate: addDays(TODAY, -30).toISOString(), status: 'received', items: [{id: 'poi3', partId: 'part-10', description: seedParts.find(p=>p.id==='part-10')!.name, quantity: 8, unitPrice: 90.00}], isPaid: true, paymentDate: addDays(TODAY, -25).toISOString()},
+    { id: 'po4', orderNumber: 'CMD-00204', supplierOrderNumber: 'BOS-XYZ-01', supplier: SUPPLIERS[4], date: addDays(TODAY, -65).toISOString(), expectedDeliveryDate: addDays(TODAY, -55).toISOString(), status: 'received', items: [{id: 'poi4', partId: 'part-11', description: seedParts.find(p=>p.id==='part-11')!.name, quantity: 10, unitPrice: 75.00}], isPaid: true, paymentDate: addDays(TODAY, -50).toISOString()},
+    { id: 'po5', orderNumber: 'CMD-00205', supplierOrderNumber: 'VAL-4567-FR', supplier: SUPPLIERS[3], date: addDays(TODAY, -1).toISOString(), expectedDeliveryDate: addDays(TODAY, 7).toISOString(), status: 'draft', items: [{id: 'poi5', partId: 'part-9', description: seedParts.find(p=>p.id==='part-9')!.name, quantity: 2, unitPrice: 250.00}], isPaid: false },
 ];
 seedPurchaseOrders.filter(po => po.isPaid).forEach(po => {
     const total = po.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);

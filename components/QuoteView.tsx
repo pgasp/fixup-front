@@ -1,6 +1,6 @@
 import React from 'react';
 import { Quote, Client, Vehicle, QuoteStatus, Appointment, RepairOrder, Settings } from '../types';
-import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, PaperPlaneIcon, CheckCircleIcon, XIcon } from './icons';
+import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, PaperPlaneIcon, CheckCircleIcon, XIcon, ClockIcon, ClipboardCheckIcon } from './icons';
 
 interface QuoteViewProps {
   quote: Quote | null;
@@ -15,6 +15,8 @@ interface QuoteViewProps {
 
 const statusLifecycleConfig: { [key in QuoteStatus]: { text: string; icon: React.FC<any>; color: string; } } = {
     draft: { text: 'Brouillon', icon: FileTextIcon, color: 'text-gray-500 dark:text-gray-400' },
+    awaiting_part_pricing: { text: 'Attente Cotation', icon: ClockIcon, color: 'text-orange-500 dark:text-orange-400' },
+    ready_to_send: { text: 'Validé', icon: ClipboardCheckIcon, color: 'text-purple-500 dark:text-purple-400' },
     sent: { text: 'Envoyé', icon: PaperPlaneIcon, color: 'text-blue-500 dark:text-blue-400' },
     approved: { text: 'Approuvé', icon: CheckCircleIcon, color: 'text-green-500 dark:text-green-400' },
     rejected: { text: 'Rejeté', icon: XIcon, color: 'text-red-500 dark:text-red-400' },
@@ -38,9 +40,24 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
   const expiryDate = new Date(validityStartDate);
   expiryDate.setDate(expiryDate.getDate() + quote.validityDuration);
   
-  const lifecycleSteps: QuoteStatus[] = ['draft', 'sent', quote.status === 'rejected' ? 'rejected' : 'approved'];
   const findStatusDate = (status: QuoteStatus) => quote.statusHistory.find(h => h.status === status)?.date;
-  const currentIndex = lifecycleSteps.indexOf(quote.status);
+  
+  const stepsToRender: QuoteStatus[] = ['draft'];
+  const didAwaitPricing = quote.statusHistory.some(h => h.status === 'awaiting_part_pricing');
+  if (didAwaitPricing) {
+    stepsToRender.push('awaiting_part_pricing');
+  }
+  stepsToRender.push('ready_to_send', 'sent');
+
+  if (quote.status === 'rejected') {
+    stepsToRender.push('rejected');
+  } else if (quote.status === 'approved' || quote.statusHistory.some(h => h.status === 'approved')) {
+    stepsToRender.push('approved');
+  }
+  const currentIndex = stepsToRender.indexOf(quote.status);
+
+  const allParts = quote.laborItems.flatMap(labor => labor.partItems);
+
 
   return (
     <div className="text-sm text-gray-800 dark:text-gray-200">
@@ -110,7 +127,7 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
             </div>
 
             <div className="flex items-start pt-4">
-              {lifecycleSteps.map((step, index) => {
+              {stepsToRender.map((step, index) => {
                   const isCompleted = index < currentIndex;
                   const isActive = index === currentIndex;
                   const stepConfig = statusLifecycleConfig[step];
@@ -120,7 +137,9 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
                   let colorClass = 'text-gray-400 dark:text-gray-500';
                   if (isCompleted) colorClass = statusLifecycleConfig.sent.color;
                   if (isActive) colorClass = stepConfig.color;
-                  if (isCompleted && step === lifecycleSteps[lifecycleSteps.length -1]) colorClass = statusLifecycleConfig[step].color;
+                  if (isCompleted && (step === 'approved' || step === 'rejected')) {
+                      colorClass = statusLifecycleConfig[step as QuoteStatus].color;
+                  }
 
 
                   return (
@@ -134,7 +153,7 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
                                   <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(statusDate).toLocaleDateString()}</p>
                                )}
                           </div>
-                          {index < lifecycleSteps.length - 1 && (
+                          {index < stepsToRender.length - 1 && (
                               <div className={`flex-grow h-1 rounded mt-5 ${isCompleted || isActive ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-700'}`}></div>
                           )}
                       </React.Fragment>
@@ -145,34 +164,45 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
       </section>
 
       <section className="p-6">
-        <table className="w-full">
+          <table className="w-full">
             <thead className="border-b-2 border-gray-300 dark:border-gray-600">
                 <tr className="text-left text-gray-600 dark:text-gray-300">
                     <th className="py-2 font-semibold">Description</th>
-                    <th className="py-2 font-semibold text-center">Qté</th>
-                    <th className="py-2 font-semibold text-right">Prix U. HT</th>
-                    <th className="py-2 font-semibold text-right">Total HT</th>
+                    <th className="py-2 font-semibold text-center w-32">Quantité / Heures</th>
+                    <th className="py-2 font-semibold text-right w-36">Prix U. / Taux HT</th>
+                    <th className="py-2 font-semibold text-right w-36">Total HT</th>
                 </tr>
             </thead>
             <tbody>
-                {quote.laborItems.map(labor => (
-                    <React.Fragment key={labor.id}>
-                        <tr className="font-semibold bg-gray-50 dark:bg-gray-800/50">
-                            <td className="py-2 pl-2">{labor.description} (Main d'œuvre)</td>
-                            <td className="py-2 text-center">{labor.hours.toFixed(2)}h</td>
-                            <td className="py-2 text-right">{labor.rate.toFixed(2)}€/h</td>
-                            <td className="py-2 text-right">{(labor.hours * labor.rate).toFixed(2)}€</td>
-                        </tr>
-                        {labor.partItems.map(part => (
-                            <tr key={part.id}>
-                                <td className="py-1 pl-8">{part.description}</td>
-                                <td className="py-1 text-center">{part.quantity}</td>
-                                <td className="py-1 text-right">{part.unitPrice.toFixed(2)}€</td>
-                                <td className="py-1 text-right">{(part.quantity * part.unitPrice).toFixed(2)}€</td>
-                            </tr>
-                        ))}
-                    </React.Fragment>
-                ))}
+                {/* Section Main d'oeuvre */}
+                <tr className="bg-gray-50 dark:bg-gray-800/50">
+                    <td colSpan={4} className="pt-4 pb-2 px-2 font-bold text-base text-gray-800 dark:text-gray-200">Main d'œuvre</td>
+                </tr>
+                {quote.laborItems.length > 0 ? quote.laborItems.map(labor => (
+                    <tr key={labor.id} className="border-b border-gray-100 dark:border-gray-700/50">
+                        <td className="py-2 pl-4">{labor.description}</td>
+                        <td className="py-2 text-center">{labor.hours.toFixed(2)}h</td>
+                        <td className="py-2 text-right">{labor.rate.toFixed(2)}€/h</td>
+                        <td className="py-2 text-right font-semibold">{(labor.hours * labor.rate).toFixed(2)}€</td>
+                    </tr>
+                )) : (
+                     <tr><td colSpan={4} className="py-2 pl-4 text-sm text-gray-500 italic">Aucune main d'œuvre.</td></tr>
+                )}
+
+                {/* Section Pièces */}
+                <tr className="bg-gray-50 dark:bg-gray-800/50">
+                    <td colSpan={4} className="pt-4 pb-2 px-2 font-bold text-base text-gray-800 dark:text-gray-200">Pièces</td>
+                </tr>
+                {allParts.length > 0 ? allParts.map(part => (
+                    <tr key={part.id} className="border-b border-gray-100 dark:border-gray-700/50">
+                        <td className="py-2 pl-4">{part.description} {part.isPreOrder && <span className="text-orange-500 text-xs">(Sur commande)</span>}</td>
+                        <td className="py-2 text-center">{part.quantity}</td>
+                        <td className="py-2 text-right">{part.preOrderStatus === 'pending_pricing' ? <span className="text-orange-500 italic">En attente</span> : `${part.unitPrice.toFixed(2)}€`}</td>
+                        <td className="py-2 text-right font-semibold">{part.preOrderStatus === 'pending_pricing' ? <span className="text-orange-500 italic">...</span> : `${(part.quantity * part.unitPrice).toFixed(2)}€`}</td>
+                    </tr>
+                )) : (
+                    <tr><td colSpan={4} className="py-2 pl-4 text-sm text-gray-500 italic">Aucune pièce.</td></tr>
+                )}
             </tbody>
         </table>
       </section>

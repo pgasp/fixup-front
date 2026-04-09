@@ -34,6 +34,12 @@ export interface PartItem {
   description: string;
   quantity: number;
   unitPrice: number;
+  purchasePrice?: number;
+  reference?: string;
+  isPreOrder?: boolean;
+  preOrderStatus?: 'pending_pricing' | 'priced' | 'ordered';
+  supplier?: string;
+  supplierReference?: string;
 }
 
 export interface LaborTask {
@@ -44,7 +50,7 @@ export interface LaborTask {
   partItems: PartItem[];
 }
 
-export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected';
+export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'awaiting_part_pricing' | 'ready_to_send';
 
 export interface QuoteStatusHistory {
   status: QuoteStatus;
@@ -148,6 +154,7 @@ export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | '
 export interface PurchaseOrderItem {
     id: string;
     partId: string;
+    description: string;
     quantity: number;
     unitPrice: number;
 }
@@ -155,6 +162,7 @@ export interface PurchaseOrderItem {
 export interface PurchaseOrder {
     id: string;
     orderNumber: string;
+    supplierOrderNumber?: string;
     supplier: string;
     date: string;
     expectedDeliveryDate?: string;
