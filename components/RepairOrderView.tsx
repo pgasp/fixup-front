@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RepairOrder, Client, Vehicle, RepairOrderStatus, Invoice, Technician, Settings } from '../types';
-import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, WrenchIcon, CheckCircleIcon, ClipboardCheckIcon, TrashIcon, ClockIcon, DocumentSearchIcon, ReceiptTaxIcon } from './icons';
+import { CarIcon, UsersIcon, FileTextIcon, CheckCircleIcon, ClockIcon, ClipboardCheckIcon } from './icons';
+import { calculateQuoteSubtotal, calculateQuoteTaxAmount, calculateQuoteTotal } from '../domain/financial';
+import { repairOrderStatusLifecycleConfig } from '../domain/status';
 
 interface RepairOrderViewProps {
   order: RepairOrder | null;
@@ -18,18 +20,6 @@ interface RepairOrderViewProps {
   onSaveNotes: (orderId: string, notes: string) => void;
   onSaveMileage: (orderId: string, mileage: number) => void;
 }
-
-const statusConfig: { [key in RepairOrderStatus]: { text: string; icon: React.FC<any>; color: string; } } = {
-    'scheduled': { text: 'Programmé', icon: CalendarIcon, color: 'text-gray-500 dark:text-gray-400' },
-    'workshop_entry': { text: 'Entrée Atelier', icon: ClipboardCheckIcon, color: 'text-blue-500 dark:text-blue-400' },
-    'diagnosis_complete': { text: 'Diagnostic Terminé', icon: DocumentSearchIcon, color: 'text-indigo-500 dark:text-indigo-400' },
-    'in_progress': { text: 'En Cours', icon: WrenchIcon, color: 'text-yellow-500 dark:text-yellow-400' },
-    'waiting_for_part': { text: 'En Attente de Pièce', icon: ClockIcon, color: 'text-orange-500 dark:text-orange-400' },
-    'completed': { text: 'Terminée', icon: CheckCircleIcon, color: 'text-green-500 dark:text-green-400' },
-    'waiting_for_invoicing': { text: 'Facturation en attente', icon: ReceiptTaxIcon, color: 'text-teal-500 dark:text-teal-400' },
-    'invoiced': { text: 'Facturée', icon: ReceiptTaxIcon, color: 'text-purple-500 dark:text-purple-400' },
-    'cancelled': { text: 'Annulée', icon: TrashIcon, color: 'text-red-500 dark:text-red-400' },
-};
 
 const lifecycleSteps: RepairOrderStatus[] = [
     'scheduled', 
@@ -67,10 +57,10 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
   }
 
   const { quote } = order;
-  const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
-  const taxAmount = subtotal * (quote.taxRate / 100);
-  const total = subtotal + taxAmount;
-  const currentStatusConfig = statusConfig[order.status];
+  const subtotal = calculateQuoteSubtotal(quote);
+  const taxAmount = calculateQuoteTaxAmount(quote);
+  const total = calculateQuoteTotal(quote);
+  const currentStatusConfig = repairOrderStatusLifecycleConfig[order.status];
   
   const activeStatusForLifecycle = order.status === 'waiting_for_part' ? 'in_progress' : order.status;
   const currentIndex = lifecycleSteps.indexOf(activeStatusForLifecycle);
@@ -130,13 +120,13 @@ const RepairOrderView: React.FC<RepairOrderViewProps> = ({ order, client, vehicl
                   const isCompleted = index < currentIndex;
                   const isActive = index === currentIndex;
                   const isWaiting = order.status === 'waiting_for_part' && step === 'in_progress';
-                  const stepConfig = statusConfig[step];
+                  const stepConfig = repairOrderStatusLifecycleConfig[step];
                   const Icon = isCompleted ? CheckCircleIcon : stepConfig.icon;
                   
                   let colorClass = 'text-gray-400 dark:text-gray-600';
                   if(isCompleted) colorClass = 'text-blue-600 dark:text-blue-400';
                   if(isActive) colorClass = stepConfig.color;
-                  if(isWaiting) colorClass = statusConfig['waiting_for_part'].color;
+                  if(isWaiting) colorClass = repairOrderStatusLifecycleConfig['waiting_for_part'].color;
 
                   return (
                       <React.Fragment key={step}>

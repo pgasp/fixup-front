@@ -4,6 +4,7 @@ import { Quote, Client, Vehicle, LaborTask, PartItem, InterventionTemplate, Part
 import Modal from './Modal';
 import { PlusIcon, TrashIcon, SearchIcon } from './icons';
 import { suggestDescription } from '../services/geminiService';
+import { calculateQuoteSubtotal, calculateQuoteTaxAmount, calculateQuoteTotal } from '../domain/financial';
 
 interface QuoteFormProps {
   isOpen: boolean;
@@ -216,13 +217,9 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
     onSave(quoteToSave);
   };
 
-  const subtotal = quote.laborItems.reduce((acc, labor) => {
-    const laborCost = labor.hours * labor.rate;
-    const partsCost = labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0);
-    return acc + laborCost + partsCost;
-  }, 0);
-  const taxAmount = subtotal * (quote.taxRate / 100);
-  const total = subtotal + taxAmount;
+  const subtotal = calculateQuoteSubtotal(quote);
+  const taxAmount = calculateQuoteTaxAmount(quote);
+  const total = calculateQuoteTotal(quote);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={existingQuote ? `Modifier Devis ${existingQuote.quoteNumber}` : `Nouveau Devis ${nextQuoteNumber}`}>

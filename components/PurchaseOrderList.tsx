@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { PurchaseOrder, PurchaseOrderStatus, Part } from '../types';
-import { FileTextIcon, PencilIcon, TrashIcon, ClockIcon, CheckCircleIcon, TruckIcon, CreditCardIcon } from './icons';
+import { PurchaseOrder } from '../types';
+import { PencilIcon, TrashIcon, CheckCircleIcon, TruckIcon, CreditCardIcon } from './icons';
+import { calculatePurchaseOrderTotal } from '../domain/financial';
+import { purchaseOrderStatusBadgeConfig } from '../domain/status';
 
 interface PurchaseOrderListProps {
   orders: PurchaseOrder[];
@@ -10,29 +12,17 @@ interface PurchaseOrderListProps {
   onMarkAsPaid: (order: PurchaseOrder) => void;
 }
 
-const statusConfig: { [key in PurchaseOrderStatus]: { text: string; color: string; icon: React.FC<{className?:string}> } } = {
-    'draft': { text: 'Brouillon', color: 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: FileTextIcon },
-    'ordered': { text: 'Commandé', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: ClockIcon },
-    'partially_received': { text: 'Partiellement Reçu', color: 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/50', icon: TruckIcon },
-    'received': { text: 'Reçu', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
-    'cancelled': { text: 'Annulé', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: TrashIcon },
-};
-
 const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, onDelete, onReceive, onMarkAsPaid }) => {
     
     const sortedOrders = useMemo(() => {
         return [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [orders]);
 
-    const calculateTotal = (order: PurchaseOrder) => {
-        return order.items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
-    };
-
   return (
     <div className="space-y-4">
         <ul className="space-y-3">
             {sortedOrders.length > 0 ? sortedOrders.map(order => {
-                const Icon = statusConfig[order.status].icon;
+                const Icon = purchaseOrderStatusBadgeConfig[order.status].icon;
                 return (
                 <li key={order.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="flex-grow">
@@ -47,16 +37,16 @@ const PurchaseOrderList: React.FC<PurchaseOrderListProps> = ({ orders, onEdit, o
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                         <div className="flex sm:flex-col items-start sm:items-end gap-2">
-                             <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{calculateTotal(order).toFixed(2)}€</p>
+                             <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{calculatePurchaseOrderTotal(order).toFixed(2)}€</p>
                              <div className="flex gap-2">
                                 {order.isPaid && (
                                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50" title={`Payé le ${new Date(order.paymentDate!).toLocaleDateString()}`}>
                                         <CreditCardIcon className="w-3.5 h-3.5"/> Payé
                                     </span>
                                 )}
-                                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full ${statusConfig[order.status].color}`}>
+                                <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full ${purchaseOrderStatusBadgeConfig[order.status].color}`}>
                                     <Icon className="w-3.5 h-3.5"/>
-                                    {statusConfig[order.status].text}
+                                    {purchaseOrderStatusBadgeConfig[order.status].text}
                                 </span>
                              </div>
                         </div>

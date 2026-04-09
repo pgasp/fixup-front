@@ -48,6 +48,7 @@ import {
     FileTextIcon, UsersIcon, CalendarIcon, WrenchIcon, ReceiptTaxIcon, BookOpenIcon, 
     BoxIcon, ShoppingCartIcon, ChartBarIcon, CogIcon, SunIcon, MoonIcon, ChevronDownIcon, WalletIcon, DocumentSearchIcon
 } from './components/icons';
+import { calculateInvoiceTotal, calculatePurchaseOrderTotal } from './domain/financial';
 
 
 type View = 'quotes' | 'clients' | 'scheduler' | 'repair_orders' | 'invoices' | 'templates' | 'technicians' | 'parts' | 'part_pricing' | 'pre_orders' | 'purchase_orders' | 'reports' | 'accounting' | 'settings';
@@ -363,7 +364,7 @@ const App: React.FC = () => {
         const updatedInvoice = { ...invoiceForPayment, status: 'paid' as const, paymentDetails: details };
         setInvoices(prev => prev.map(inv => inv.id === invoiceForPayment.id ? updatedInvoice : inv));
 
-        const total = updatedInvoice.quote.laborItems.reduce((acc, l) => acc + (l.hours * l.rate) + l.partItems.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0), 0) * (1 + updatedInvoice.quote.taxRate/100);
+        const total = calculateInvoiceTotal(updatedInvoice);
         const newTransaction: FinancialTransaction = {
             id: crypto.randomUUID(),
             date: details.date,
@@ -545,7 +546,7 @@ const App: React.FC = () => {
         const updatedPO = { ...poForPayment, isPaid: true, paymentDate: paymentDetails.date };
         setPurchaseOrders(prev => prev.map(po => po.id === poForPayment.id ? updatedPO : po));
         
-        const total = updatedPO.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const total = calculatePurchaseOrderTotal(updatedPO);
         const newTransaction: FinancialTransaction = {
             id: crypto.randomUUID(),
             date: paymentDetails.date,

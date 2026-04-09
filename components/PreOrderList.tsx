@@ -1,21 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Quote, QuoteStatus } from '../types';
-import { ShoppingCartIcon, TruckIcon, FileTextIcon, PaperPlaneIcon, CheckCircleIcon, XIcon, ClockIcon, ClipboardCheckIcon } from './icons';
+import { ShoppingCartIcon, TruckIcon } from './icons';
+import { quoteStatusBadgeConfig } from '../domain/status';
 
 interface PreOrderListProps {
   quotes: Quote[];
   onCreatePurchaseOrder: (supplier: string, items: { id: string; partId: string; description: string; quantity: number; purchasePrice: number; }[]) => void;
 }
-
-// Copied from QuoteList for consistent styling
-const statusConfig: { [key in QuoteStatus]: { text: string; color: string; icon?: React.FC<{className?:string}> } } = {
-    draft: { text: 'Brouillon', color: 'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: FileTextIcon },
-    ready_to_send: { text: 'Prêt pour envoi', color: 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/50', icon: ClipboardCheckIcon },
-    awaiting_part_pricing: { text: 'Attente cotation', color: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/50', icon: ClockIcon },
-    sent: { text: 'Envoyé', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: PaperPlaneIcon },
-    approved: { text: 'Approuvé', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
-    rejected: { text: 'Rejeté', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: XIcon },
-};
 
 type FlatPartItem = {
     uniqueKey: string; // Combo of quoteId and lineItemId
@@ -163,7 +154,7 @@ const PreOrderList: React.FC<PreOrderListProps> = ({ quotes, onCreatePurchaseOrd
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {flatParts.map(part => {
-                                    const status = statusConfig[part.quoteStatus];
+                                    const status = quoteStatusBadgeConfig[part.quoteStatus];
                                     const StatusIcon = status.icon;
                                     return (
                                         <tr key={part.uniqueKey} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${selectedItems.has(part.uniqueKey) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>

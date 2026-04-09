@@ -1,6 +1,7 @@
 import React from 'react';
 import { Invoice, Client, Vehicle, Settings, PaymentDetails } from '../types';
 import { CarIcon, UsersIcon, CalendarIcon, CreditCardIcon, ClockIcon, CheckCircleIcon } from './icons';
+import { calculateQuoteSubtotal, calculateQuoteTaxAmount, calculateQuoteTotal } from '../domain/financial';
 
 interface InvoiceViewProps {
   invoice: Invoice | null;
@@ -23,9 +24,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ invoice, client, vehicle, set
   }
   
   const { quote } = invoice;
-  const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
-  const taxAmount = subtotal * (quote.taxRate / 100);
-  const total = subtotal + taxAmount;
+  const subtotal = calculateQuoteSubtotal(quote);
+  const taxAmount = calculateQuoteTaxAmount(quote);
+  const total = calculateQuoteTotal(quote);
   const allParts = quote.laborItems.flatMap(labor => labor.partItems);
 
   return (

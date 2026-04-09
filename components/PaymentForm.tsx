@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Invoice, PaymentDetails } from '../types';
 import Modal from './Modal';
+import { calculateInvoiceTotal } from '../domain/financial';
 
 interface PaymentFormProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ isOpen, onClose, onSave, invo
     <Modal isOpen={isOpen} onClose={onClose} title={`Enregistrer le paiement de ${invoice.invoiceNumber}`} size="md">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-            <p>Montant à payer : <strong className="font-bold text-lg">{invoice.quote.laborItems.reduce((acc, l) => acc + (l.hours * l.rate) + l.partItems.reduce((pAcc, p) => pAcc + (p.quantity * p.unitPrice), 0), 0) * (1 + invoice.quote.taxRate/100)}€</strong></p>
+            <p>Montant à payer : <strong className="font-bold text-lg">{calculateInvoiceTotal(invoice).toFixed(2)}€</strong></p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

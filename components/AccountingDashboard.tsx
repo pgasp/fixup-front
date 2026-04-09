@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Invoice, PurchaseOrder } from '../types';
 import { ChartBarIcon, CreditCardIcon, ShoppingCartIcon, WalletIcon } from './icons';
+import { calculateInvoiceTotal, calculatePurchaseOrderTotal } from '../domain/financial';
 
 interface AccountingDashboardProps {
   invoices: Invoice[];
@@ -101,16 +102,6 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
 
-    const calculateInvoiceTotal = (invoice: Invoice) => {
-        const { quote } = invoice;
-        const subtotal = quote.laborItems.reduce((acc, labor) => acc + (labor.hours * labor.rate) + labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0), 0);
-        return subtotal * (1 + quote.taxRate / 100);
-    };
-
-    const calculateOrderTotal = (order: PurchaseOrder) => {
-        return order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-    };
-
     const dateRange = useMemo(() => {
         if (period === 'custom' && customStartDate && customEndDate) {
             const start = new Date(customStartDate);
@@ -142,7 +133,7 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
                 const paymentDate = new Date(po.paymentDate);
                 if (paymentDate.getFullYear() === currentYear) {
                     const monthIndex = paymentDate.getMonth();
-                    data[monthIndex].expenses += calculateOrderTotal(po);
+                    data[monthIndex].expenses += calculatePurchaseOrderTotal(po);
                 }
             }
         });
@@ -166,13 +157,13 @@ const AccountingDashboard: React.FC<AccountingDashboardProps> = ({ invoices, pur
         });
 
         const revenue = paidInvoices.reduce((sum, inv) => sum + calculateInvoiceTotal(inv), 0);
-        const expenses = paidOrders.reduce((sum, po) => sum + calculateOrderTotal(po), 0);
+        const expenses = paidOrders.reduce((sum, po) => sum + calculatePurchaseOrderTotal(po), 0);
         const profit = revenue - expenses;
         const avgInvoice = paidInvoices.length > 0 ? revenue / paidInvoices.length : 0;
         
         const transactions = [
             ...paidInvoices.map(inv => ({ type: 'revenue' as const, date: new Date(inv.paymentDetails!.date), amount: calculateInvoiceTotal(inv), description: `Facture ${inv.invoiceNumber}` })),
-            ...paidOrders.map(po => ({ type: 'expense' as const, date: new Date(po.paymentDate!), amount: calculateOrderTotal(po), description: `Commande ${po.orderNumber}` })),
+            ...paidOrders.map(po => ({ type: 'expense' as const, date: new Date(po.paymentDate!), amount: calculatePurchaseOrderTotal(po), description: `Commande ${po.orderNumber}` })),
         ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
         return { revenue, expenses, profit, avgInvoice, transactions };

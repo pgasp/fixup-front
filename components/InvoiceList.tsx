@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { Invoice, InvoiceStatus, Client } from '../types';
-// FIX: Import 'ReceiptTaxIcon'.
-import { FileTextIcon, TrashIcon, CreditCardIcon, ClockIcon, ReceiptTaxIcon } from './icons';
+import { Invoice, Client } from '../types';
+import { FileTextIcon, TrashIcon, CreditCardIcon, ReceiptTaxIcon } from './icons';
+import { calculateInvoiceTotal } from '../domain/financial';
+import { invoiceStatusBadgeConfig } from '../domain/status';
 
 interface InvoiceListProps {
   invoices: Invoice[];
@@ -11,12 +12,6 @@ interface InvoiceListProps {
   onMarkAsPaid: (invoice: Invoice) => void;
 }
 
-const statusConfig: { [key in InvoiceStatus]: { text: string; color: string; icon: React.FC<{className?:string}> } } = {
-    'draft': { text: 'En attente de paiement', color: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/50', icon: ClockIcon },
-    'paid': { text: 'Payée', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CreditCardIcon },
-    'cancelled': { text: 'Annulée', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: TrashIcon },
-};
-
 const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, clients, onView, onDelete, onMarkAsPaid }) => {
     
     const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
@@ -25,20 +20,11 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, clients, onView, on
         return [...invoices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [invoices]);
 
-    const calculateTotal = (invoice: Invoice) => {
-        const subtotal = invoice.quote.laborItems.reduce((acc, labor) => {
-            const laborCost = labor.hours * labor.rate;
-            const partsCost = labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0);
-            return acc + laborCost + partsCost;
-        }, 0);
-        return subtotal * (1 + invoice.quote.taxRate / 100);
-    };
-
   return (
     <div className="space-y-4">
         <ul className="space-y-3">
             {sortedInvoices.length > 0 ? sortedInvoices.map(invoice => {
-                const Icon = statusConfig[invoice.status].icon;
+                const Icon = invoiceStatusBadgeConfig[invoice.status].icon;
                 const client = clientMap.get(invoice.quote.clientId);
                 return (
                 <li key={invoice.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -51,10 +37,10 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ invoices, clients, onView, on
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                         <div className="flex sm:flex-col items-start sm:items-end gap-2">
-                             <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{calculateTotal(invoice).toFixed(2)}€</p>
-                             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full ${statusConfig[invoice.status].color}`}>
+                             <p className="font-mono text-lg font-semibold text-blue-600 dark:text-blue-400">{calculateInvoiceTotal(invoice).toFixed(2)}€</p>
+                             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full ${invoiceStatusBadgeConfig[invoice.status].color}`}>
                                 <Icon className="w-3.5 h-3.5"/>
-                                {statusConfig[invoice.status].text}
+                                {invoiceStatusBadgeConfig[invoice.status].text}
                             </span>
                         </div>
                        

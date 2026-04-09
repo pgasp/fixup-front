@@ -1,6 +1,4 @@
-// FIX: Import Dispatch and SetStateAction types from React and update the function
-// signature to use them, resolving the 'Cannot find namespace React' error.
-import { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import { Dispatch, SetStateAction, useCallback, useState } from 'react';
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetStateAction<T>>] {
   const [storedValue, setStoredValue] = useState<T>(() => {
@@ -13,19 +11,19 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<SetState
     }
   });
 
-  useEffect(() => {
+  const setValue: Dispatch<SetStateAction<T>> = useCallback((value) => {
     try {
-      const valueToStore =
-        typeof storedValue === 'function'
-          ? storedValue(storedValue)
-          : storedValue;
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
+      setStoredValue((previousValue) => {
+        const valueToStore = value instanceof Function ? value(previousValue) : value;
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        return valueToStore;
+      });
     } catch (error) {
       console.error(error);
     }
-  }, [key, storedValue]);
+  }, [key]);
 
-  return [storedValue, setStoredValue];
+  return [storedValue, setValue];
 }
 
 export default useLocalStorage;

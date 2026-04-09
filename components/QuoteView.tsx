@@ -1,6 +1,8 @@
 import React from 'react';
 import { Quote, Client, Vehicle, QuoteStatus, Appointment, RepairOrder, Settings } from '../types';
-import { CarIcon, UsersIcon, CalendarIcon, FileTextIcon, PaperPlaneIcon, CheckCircleIcon, XIcon, ClockIcon, ClipboardCheckIcon } from './icons';
+import { CarIcon, UsersIcon, CalendarIcon, CheckCircleIcon } from './icons';
+import { calculateQuoteSubtotal, calculateQuoteTaxAmount, calculateQuoteTotal } from '../domain/financial';
+import { quoteStatusLifecycleConfig } from '../domain/status';
 
 interface QuoteViewProps {
   quote: Quote | null;
@@ -13,27 +15,14 @@ interface QuoteViewProps {
   onViewInScheduler: () => void;
 }
 
-const statusLifecycleConfig: { [key in QuoteStatus]: { text: string; icon: React.FC<any>; color: string; } } = {
-    draft: { text: 'Brouillon', icon: FileTextIcon, color: 'text-gray-500 dark:text-gray-400' },
-    awaiting_part_pricing: { text: 'Attente Cotation', icon: ClockIcon, color: 'text-orange-500 dark:text-orange-400' },
-    ready_to_send: { text: 'Validé', icon: ClipboardCheckIcon, color: 'text-purple-500 dark:text-purple-400' },
-    sent: { text: 'Envoyé', icon: PaperPlaneIcon, color: 'text-blue-500 dark:text-blue-400' },
-    approved: { text: 'Approuvé', icon: CheckCircleIcon, color: 'text-green-500 dark:text-green-400' },
-    rejected: { text: 'Rejeté', icon: XIcon, color: 'text-red-500 dark:text-red-400' },
-};
-
 const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings, appointment, repairOrder, onViewRepairOrder, onViewInScheduler }) => {
   if (!quote || !client || !vehicle) {
     return <div className="text-center p-8">Chargement des données du devis...</div>;
   }
 
-  const subtotal = quote.laborItems.reduce((acc, labor) => {
-    const laborCost = labor.hours * labor.rate;
-    const partsCost = labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0);
-    return acc + laborCost + partsCost;
-  }, 0);
-  const taxAmount = subtotal * (quote.taxRate / 100);
-  const total = subtotal + taxAmount;
+  const subtotal = calculateQuoteSubtotal(quote);
+  const taxAmount = calculateQuoteTaxAmount(quote);
+  const total = calculateQuoteTotal(quote);
   
   const sentEntry = quote.statusHistory.find(h => h.status === 'sent');
   const validityStartDate = sentEntry ? new Date(sentEntry.date) : new Date(quote.date);
@@ -130,15 +119,15 @@ const QuoteView: React.FC<QuoteViewProps> = ({ quote, client, vehicle, settings,
               {stepsToRender.map((step, index) => {
                   const isCompleted = index < currentIndex;
                   const isActive = index === currentIndex;
-                  const stepConfig = statusLifecycleConfig[step];
+                  const stepConfig = quoteStatusLifecycleConfig[step];
                   const Icon = isCompleted ? CheckCircleIcon : stepConfig.icon;
                   const statusDate = findStatusDate(step);
 
                   let colorClass = 'text-gray-400 dark:text-gray-500';
-                  if (isCompleted) colorClass = statusLifecycleConfig.sent.color;
+                  if (isCompleted) colorClass = quoteStatusLifecycleConfig.sent.color;
                   if (isActive) colorClass = stepConfig.color;
                   if (isCompleted && (step === 'approved' || step === 'rejected')) {
-                      colorClass = statusLifecycleConfig[step as QuoteStatus].color;
+                      colorClass = quoteStatusLifecycleConfig[step as QuoteStatus].color;
                   }
 
 

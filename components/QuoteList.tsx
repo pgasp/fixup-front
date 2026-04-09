@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Quote, Client, QuoteStatus, Appointment } from '../types';
-// FIX: Add missing CalendarIcon and WrenchIcon imports.
-import { FileTextIcon, PencilIcon, TrashIcon, CheckCircleIcon, XIcon, SearchIcon, ClockIcon, PaperPlaneIcon, CalendarIcon, WrenchIcon, ClipboardCheckIcon } from './icons';
+import { FileTextIcon, PencilIcon, TrashIcon, SearchIcon, CalendarIcon, WrenchIcon } from './icons';
+import { calculateQuoteTotal } from '../domain/financial';
+import { quoteStatusBadgeConfig } from '../domain/status';
 
 interface QuoteListProps {
   quotes: Quote[];
@@ -14,15 +15,6 @@ interface QuoteListProps {
   onSchedule: (quote: Quote) => void;
   onCreateRepairOrder: (quoteId: string) => void;
 }
-
-const statusConfig: { [key in QuoteStatus]: { text: string; color: string; icon?: React.FC<{className?:string}> } } = {
-    draft: { text: 'Brouillon', color: 'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: FileTextIcon },
-    ready_to_send: { text: 'Prêt pour envoi', color: 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/50', icon: ClipboardCheckIcon },
-    awaiting_part_pricing: { text: 'Attente cotation', color: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/50', icon: ClockIcon },
-    sent: { text: 'Envoyé', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: PaperPlaneIcon },
-    approved: { text: 'Approuvé', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
-    rejected: { text: 'Rejeté', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: XIcon },
-};
 
 const statusFilters: { value: QuoteStatus | 'all', label: string }[] = [
     { value: 'all', label: 'Tous' },
@@ -43,19 +35,10 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
 
     const clientMap = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients]);
 
-    const calculateTotal = (quote: Quote) => {
-        const subtotal = quote.laborItems.reduce((acc, labor) => {
-            const laborCost = labor.hours * labor.rate;
-            const partsCost = labor.partItems.reduce((pAcc, part) => pAcc + (part.quantity * part.unitPrice), 0);
-            return acc + laborCost + partsCost;
-        }, 0);
-        return subtotal * (1 + quote.taxRate / 100);
-    };
-
     const sortedAndFilteredQuotes = useMemo(() => {
         return [...quotes]
             .filter(q => showArchived || !q.isConvertedToRepairOrder) // Hide converted quotes unless toggled
-            .map(q => ({...q, clientName: clientMap.get(q.clientId)?.name || 'N/A', total: calculateTotal(q)}))
+            .map(q => ({...q, clientName: clientMap.get(q.clientId)?.name || 'N/A', total: calculateQuoteTotal(q)}))
             .filter(q => {
                 const searchMatch = q.quoteNumber.toLowerCase().includes(filter.toLowerCase()) || 
                                     q.clientName.toLowerCase().includes(filter.toLowerCase());
@@ -121,7 +104,7 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
         
         <ul className="space-y-3">
             {sortedAndFilteredQuotes.length > 0 ? sortedAndFilteredQuotes.map(quote => {
-                const Icon = statusConfig[quote.status].icon;
+                const Icon = quoteStatusBadgeConfig[quote.status].icon;
                 const quoteAppointment = appointments.find(a => a.quoteId === quote.id);
                 const isEditable = quote.status === 'draft' || quote.status === 'awaiting_part_pricing';
                 return (
@@ -137,9 +120,9 @@ const QuoteList: React.FC<QuoteListProps> = ({ quotes, clients, appointments, on
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); onChangeStatus(quote.id); }}
                                     title="Changer le statut"
-                                    className={`inline-flex items-center gap-1.5 cursor-pointer transition-opacity hover:opacity-80 text-xs font-medium px-3 py-1 rounded-full ${statusConfig[quote.status].color}`}>
+                                    className={`inline-flex items-center gap-1.5 cursor-pointer transition-opacity hover:opacity-80 text-xs font-medium px-3 py-1 rounded-full ${quoteStatusBadgeConfig[quote.status].color}`}>
                                     {Icon && <Icon className="w-3.5 h-3.5"/>}
-                                    {statusConfig[quote.status].text}
+                                    {quoteStatusBadgeConfig[quote.status].text}
                                 </button>
                             </div>
                             

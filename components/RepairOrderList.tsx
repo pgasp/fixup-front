@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { RepairOrder, RepairOrderStatus, Client, Technician } from '../types';
-import { FileTextIcon, TrashIcon, WrenchIcon, CalendarIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, DocumentSearchIcon, ReceiptTaxIcon, UsersIcon } from './icons';
+import { RepairOrder, Client, Technician } from '../types';
+import { FileTextIcon, TrashIcon, WrenchIcon, UsersIcon } from './icons';
+import { repairOrderStatusBadgeConfig } from '../domain/status';
 
 interface RepairOrderListProps {
   repairOrders: RepairOrder[];
@@ -11,19 +12,6 @@ interface RepairOrderListProps {
   onDelete: (orderId: string) => void;
   onAssignTechnician: (orderId: string, technicianId: string) => void;
 }
-
-const statusConfig: { [key in RepairOrderStatus]: { text: string; color: string; icon: React.FC<{className?:string}> } } = {
-    'scheduled': { text: 'Programmé', color: 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-700', icon: CalendarIcon },
-    'workshop_entry': { text: 'Entrée Atelier', color: 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/50', icon: ClipboardCheckIcon },
-    'diagnosis_complete': { text: 'Diagnostic Terminé', color: 'text-indigo-600 bg-indigo-100 dark:text-indigo-400 dark:bg-indigo-900/50', icon: DocumentSearchIcon },
-    'in_progress': { text: 'En Cours', color: 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/50', icon: WrenchIcon },
-    'waiting_for_part': { text: 'Attente Pièce', color: 'text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/50', icon: ClockIcon },
-    'completed': { text: 'Terminée', color: 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/50', icon: CheckCircleIcon },
-    'waiting_for_invoicing': { text: 'À Facturer', color: 'text-teal-600 bg-teal-100 dark:text-teal-400 dark:bg-teal-900/50', icon: ReceiptTaxIcon },
-    'invoiced': { text: 'Facturée', color: 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/50', icon: ReceiptTaxIcon },
-    'cancelled': { text: 'Annulée', color: 'text-red-500 bg-red-100 dark:text-red-400 dark:bg-red-900/50', icon: TrashIcon },
-};
-
 
 const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients, technicians, technicianWorkload, onView, onDelete, onAssignTechnician }) => {
     
@@ -61,7 +49,7 @@ const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients
         </div>
         <ul className="space-y-3">
             {sortedAndFilteredRepairOrders.length > 0 ? sortedAndFilteredRepairOrders.map(order => {
-                const Icon = statusConfig[order.status].icon;
+                const Icon = repairOrderStatusBadgeConfig[order.status].icon;
                 const client = clientMap.get(order.quote.clientId);
                 const vehicle = client?.vehicles.find(v => v.id === order.quote.vehicleId);
                 return (
@@ -93,9 +81,9 @@ const RepairOrderList: React.FC<RepairOrderListProps> = ({ repairOrders, clients
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
                          <span 
                             title="Statut de la réparation"
-                            className={`inline-flex items-center gap-1.5 cursor-default transition-opacity text-xs font-medium px-3 py-1 rounded-full ${statusConfig[order.status].color}`}>
+                            className={`inline-flex items-center gap-1.5 cursor-default transition-opacity text-xs font-medium px-3 py-1 rounded-full ${repairOrderStatusBadgeConfig[order.status].color}`}>
                             <Icon className="w-3.5 h-3.5"/>
-                            {statusConfig[order.status].text}
+                            {repairOrderStatusBadgeConfig[order.status].text}
                         </span>
                        
                         <div className="flex items-center justify-end gap-1 border-t sm:border-t-0 sm:border-l border-gray-200 dark:border-gray-700 pt-3 sm:pt-0 sm:pl-3">
