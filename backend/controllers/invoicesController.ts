@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { HttpError } from '../errors';
+import { asRouteParam } from '../routeParams';
 import { payInvoice } from '../services/workflows';
 import { AppDataStore } from '../types';
 
@@ -46,6 +47,6 @@ export const markInvoiceAsPaid = (store: AppDataStore) => (req: Request, res: Re
   if (!payload?.date || !payload?.method) {
     throw new HttpError(400, 'date and method are required');
   }
-  const invoice = payInvoice(store, req.params.invoiceId, payload);
+  const invoice = payInvoice(store, asRouteParam(req.params.invoiceId), payload);
   res.json(invoice);
 };

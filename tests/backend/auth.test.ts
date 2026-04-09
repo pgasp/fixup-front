@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { AddressInfo } from 'node:net';
 import { createApp } from '../../backend/app';
 
-describe('backend app', () => {
+describe('backend auth', () => {
   const app = createApp();
   const server = app.listen(0);
   const address = server.address() as AddressInfo;
@@ -13,16 +13,12 @@ describe('backend app', () => {
     server.close();
   });
 
-  it('serves health endpoint', async () => {
-    const response = await fetch(`${baseUrl}/api/health`);
-    assert.equal(response.status, 200);
-    const payload = await response.json() as { status: string; version: string; uptimeMs: number };
-    assert.equal(payload.status, 'ok');
-    assert.ok(typeof payload.version === 'string');
-    assert.ok(payload.uptimeMs >= 0);
+  it('rejects clients without token', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/clients`);
+    assert.equal(response.status, 401);
   });
 
-  it('serves clients endpoint when authenticated', async () => {
+  it('logs in and accesses protected route', async () => {
     const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -30,12 +26,22 @@ describe('backend app', () => {
     });
     assert.equal(loginRes.status, 200);
     const { token } = await loginRes.json() as { token: string };
+    assert.ok(typeof token === 'string' && token.length > 0);
 
-    const response = await fetch(`${baseUrl}/api/v1/clients`, {
+    const clientsRes = await fetch(`${baseUrl}/api/v1/clients`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    assert.equal(response.status, 200);
-    const payload = await response.json() as unknown[];
+    assert.equal(clientsRes.status, 200);
+    const payload = await clientsRes.json() as unknown[];
     assert.ok(Array.isArray(payload));
+  });
+
+  it('rejects wrong password', async () => {
+    const loginRes = await fetch(`${baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@fixup.local', password: 'wrong' }),
+    });
+    assert.equal(loginRes.status, 401);
   });
 });

@@ -3,12 +3,13 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createApp } from "./backend/app";
+import { errorHandler, notFoundHandler } from "./backend/middleware/errorHandler";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
-  const app = createApp();
+  const app = createApp({ skipNotFound: true });
   const PORT = 3000;
 
   // Vite middleware for development
@@ -25,6 +26,9 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

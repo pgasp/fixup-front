@@ -15,6 +15,11 @@ interface QuoteFormProps {
   parts: Part[];
   existingQuote?: Quote | null;
   nextQuoteNumber: string;
+  /** Ouvre le formulaire client (ex. depuis « Nouveau client » ou après recherche plaque infructueuse). */
+  onOpenNewClientForm?: (licensePlateHint?: string) => void;
+  /** Après création d'un client depuis ce flux, sélection auto client + véhicule. */
+  pendingClientAndVehicle?: { clientId: string; vehicleId: string } | null;
+  onPendingClientSelectionConsumed?: () => void;
 }
 
 const emptyLaborTask: Omit<LaborTask, 'id' | 'partItems'> = { description: '', hours: 1, rate: 50 };
@@ -27,7 +32,19 @@ const calculatePartSellingPrice = (part: Part): number => {
     return part.sellingPrice || 0;
 };
 
-const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients, interventionTemplates, parts, existingQuote, nextQuoteNumber }) => {
+const QuoteForm: React.FC<QuoteFormProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  clients,
+  interventionTemplates,
+  parts,
+  existingQuote,
+  nextQuoteNumber,
+  onOpenNewClientForm,
+  pendingClientAndVehicle,
+  onPendingClientSelectionConsumed,
+}) => {
   const [quote, setQuote] = useState<Omit<Quote, 'id' | 'quoteNumber' | 'status' | 'statusHistory' | 'laborItems'> & { laborItems: LaborTask[] }>({
     clientId: '', vehicleId: '', date: new Date().toISOString().split('T')[0], validityDuration: 30, taxRate: 20, laborItems: []
   });
@@ -49,7 +66,17 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
       }
       setLicensePlateSearch('');
     }
-  }, [existingQuote, isOpen, clients]);
+  }, [existingQuote, isOpen]);
+
+  useEffect(() => {
+    if (!pendingClientAndVehicle || !isOpen) return;
+    const client = clients.find(c => c.id === pendingClientAndVehicle.clientId);
+    const vehicle = client?.vehicles.find(v => v.id === pendingClientAndVehicle.vehicleId);
+    if (!client || !vehicle) return;
+    setSelectedClientVehicles(client.vehicles);
+    setQuote(prev => ({ ...prev, clientId: client.id, vehicleId: vehicle.id }));
+    onPendingClientSelectionConsumed?.();
+  }, [pendingClientAndVehicle, clients, isOpen, onPendingClientSelectionConsumed]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -85,6 +112,10 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
             clientId: foundClient!.id, 
             vehicleId: foundVehicle!.id 
         }));
+    } else if (onOpenNewClientForm) {
+        if (confirm(`Aucun véhicule trouvé pour ${plate}. Créer un nouveau client avec cette plaque ?`)) {
+            onOpenNewClientForm(plate);
+        }
     } else {
         alert(`Aucun véhicule trouvé avec la plaque d'immatriculation : ${plate}`);
     }
@@ -254,10 +285,22 @@ const QuoteForm: React.FC<QuoteFormProps> = ({ isOpen, onClose, onSave, clients,
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select name="clientId" value={quote.clientId} onChange={handleChange} required className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3">
+                <div className="flex gap-2 items-stretch">
+                <select name="clientId" value={quote.clientId} onChange={handleChange} required className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3">
                     <option value="">Sélectionner un client</option>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                {onOpenNewClientForm && (
+                    <button
+                        type="button"
+                        onClick={() => onOpenNewClientForm()}
+                        disabled={!!isLocked}
+                        className="shrink-0 py-2 px-3 rounded-md border border-blue-600 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+                    >
+                        Nouveau client
+                    </button>
+                )}
+                </div>
                 <select name="vehicleId" value={quote.vehicleId} onChange={handleChange} required disabled={!quote.clientId} className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 disabled:bg-gray-200 dark:disabled:bg-gray-800">
                     <option value="">Sélectionner un véhicule</option>
                     {selectedClientVehicles.map(v => <option key={v.id} value={v.id}>{v.make} {v.model} ({v.licensePlate})</option>)}

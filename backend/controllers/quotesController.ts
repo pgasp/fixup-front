@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { HttpError } from '../errors';
+import { asRouteParam } from '../routeParams';
 import { updateQuoteStatus } from '../services/workflows';
 import { AppDataStore } from '../types';
 
@@ -46,6 +47,6 @@ export const changeQuoteStatus = (store: AppDataStore) => (req: Request, res: Re
   if (!status) {
     throw new HttpError(400, 'status is required');
   }
-  const updated = updateQuoteStatus(store, req.params.quoteId, status);
+  const updated = updateQuoteStatus(store, asRouteParam(req.params.quoteId), status);
   res.json(updated);
 };

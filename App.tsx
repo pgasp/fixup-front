@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import useLocalStorage from './hooks/useLocalStorage';
 import { 
     Client, Quote, Appointment, RepairOrder, Invoice, Part, Technician, InterventionTemplate, 
@@ -42,7 +42,17 @@ import PurchaseOrderPaymentForm from './components/PurchaseOrderPaymentForm';
 import ReportsDashboard from './components/ReportsDashboard';
 import AccountingDashboard from './components/AccountingDashboard';
 import SettingsComponent from './components/Settings';
-import { apiClient } from './services/api';
+import LoginPage from './components/LoginPage';
+import UserAdminPage, { type UserAdminPageHandle } from './components/UserAdminPage';
+import { apiClient, setUnauthorizedHandler } from './services/api';
+import { AUTH_STORAGE_KEY, type AuthSession } from './auth/session';
+import {
+    canAccessSection,
+    filterSidebarGroups,
+    getDefaultSectionForRole,
+    type AppSection,
+} from './auth/appSections';
+import { roleLabelsFr } from './auth/roles';
 
 // Import icons for sidebar
 import { 
@@ -51,10 +61,11 @@ import {
 } from './components/icons';
 import { calculateInvoiceTotal, calculatePurchaseOrderTotal } from './domain/financial';
 
-
-type View = 'quotes' | 'clients' | 'scheduler' | 'repair_orders' | 'invoices' | 'templates' | 'technicians' | 'parts' | 'part_pricing' | 'pre_orders' | 'purchase_orders' | 'reports' | 'accounting' | 'settings';
+type View = AppSection;
 
 const App: React.FC = () => {
+    const [authSession, setAuthSession] = useLocalStorage<AuthSession | null>(AUTH_STORAGE_KEY, null);
+
     // Main state management using useLocalStorage hook
     const [clients, setClients] = useLocalStorage<Client[]>('clients', seedClients);
     const [quotes, setQuotes] = useLocalStorage<Quote[]>('quotes', seedQuotes);
@@ -77,6 +88,9 @@ const App: React.FC = () => {
     const [quoteToEdit, setQuoteToEdit] = useState<Quote | null>(null);
     const [isClientFormOpen, setIsClientFormOpen] = useState(false);
     const [clientToEdit, setClientToEdit] = useState<Client | null>(null);
+    const [clientFormOpenedFromQuote, setClientFormOpenedFromQuote] = useState(false);
+    const [prefillNewClientVehiclePlate, setPrefillNewClientVehiclePlate] = useState<string | null>(null);
+    const [pendingQuoteClientSelection, setPendingQuoteClientSelection] = useState<{ clientId: string; vehicleId: string } | null>(null);
     const [quoteToView, setQuoteToView] = useState<Quote | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{ id: string; type: string; name: string } | null>(null);
@@ -102,6 +116,7 @@ const App: React.FC = () => {
     const [poForPayment, setPOForPayment] = useState<PurchaseOrder | null>(null);
     const [openSection, setOpenSection] = useState('Atelier');
 
+    const userAdminRef = useRef<UserAdminPageHandle | null>(null);
 
     // Computed values
     const nextQuoteNumber = useMemo(() => {
@@ -159,8 +174,37 @@ const App: React.FC = () => {
     }, [theme]);
 
     useEffect(() => {
+        setUnauthorizedHandler(() => {
+            setAuthSession(null);
+        });
+        return () => setUnauthorizedHandler(null);
+    }, [setAuthSession]);
+
+    useEffect(() => {
+        if (!authSession?.token) {
+            return;
+        }
+        let cancelled = false;
+        void apiClient.auth
+            .me()
+            .then(({ user }) => {
+                if (!cancelled) {
+                    setAuthSession((s) => (s ? { token: s.token, user } : null));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setAuthSession(null);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [authSession?.token, setAuthSession]);
+
+    useEffect(() => {
         const shouldUseBackend = import.meta.env.VITE_USE_BACKEND === 'true';
-        if (!shouldUseBackend) {
+        if (!shouldUseBackend || !authSession?.token) {
             return;
         }
 
@@ -182,7 +226,16 @@ const App: React.FC = () => {
         };
 
         void bootstrap();
-    }, [setClients, setInvoices, setQuotes, setRepairOrders]);
+    }, [authSession?.token, setClients, setInvoices, setQuotes, setRepairOrders]);
+
+    useEffect(() => {
+        if (!authSession?.user) {
+            return;
+        }
+        if (!canAccessSection(authSession.user.role, activeView)) {
+            setActiveView(getDefaultSectionForRole(authSession.user.role));
+        }
+    }, [authSession?.user, activeView]);
 
 
     // Handlers
@@ -210,9 +263,36 @@ const App: React.FC = () => {
             }
             return [...prev, client];
         });
+        const fromQuote = clientFormOpenedFromQuote;
+        if (fromQuote) {
+            setClientFormOpenedFromQuote(false);
+            setPrefillNewClientVehiclePlate(null);
+            const firstVehicle = client.vehicles[0];
+            if (firstVehicle) {
+                setPendingQuoteClientSelection({ clientId: client.id, vehicleId: firstVehicle.id });
+            }
+        }
         setIsClientFormOpen(false);
         setClientToEdit(null);
     };
+
+    const handleOpenNewClientFromQuote = useCallback((licensePlateHint?: string) => {
+        setClientToEdit(null);
+        setPrefillNewClientVehiclePlate(licensePlateHint?.trim() ? licensePlateHint.trim().toUpperCase() : null);
+        setClientFormOpenedFromQuote(true);
+        setIsClientFormOpen(true);
+    }, []);
+
+    const handlePendingQuoteClientSelectionConsumed = useCallback(() => {
+        setPendingQuoteClientSelection(null);
+    }, []);
+
+    const handleCloseClientForm = useCallback(() => {
+        setIsClientFormOpen(false);
+        setClientToEdit(null);
+        setClientFormOpenedFromQuote(false);
+        setPrefillNewClientVehiclePlate(null);
+    }, []);
 
     const handleConfirmDelete = () => {
         if (!itemToDelete) return;
@@ -721,44 +801,55 @@ const App: React.FC = () => {
                 return <AccountingDashboard invoices={invoices} purchaseOrders={purchaseOrders} />;
             case 'settings':
                 return <SettingsComponent settings={settings} onSave={setSettings} />;
+            case 'users':
+                return authSession ? (
+                    <UserAdminPage ref={userAdminRef} currentUserId={authSession.user.id} />
+                ) : null;
             default:
                 return <div>Selectionnez une vue</div>;
         }
     };
     
-    const sidebarGroups = [
-        { 
-            title: 'Atelier', 
-            icon: WrenchIcon,
-            items: [
-                { view: 'repair_orders', label: 'Fiches Réparation', icon: WrenchIcon },
-                { view: 'scheduler', label: 'Planning', icon: CalendarIcon },
-                { view: 'parts', label: 'Pièces', icon: BoxIcon },
-                { view: 'templates', label: 'Catalogue', icon: BookOpenIcon },
-            ]
-        },
-        {
-            title: 'Gestion',
-            icon: BookOpenIcon,
-            items: [
-                { view: 'quotes', label: 'Devis', icon: FileTextIcon },
-                { view: 'invoices', label: 'Factures', icon: ReceiptTaxIcon },
-                { view: 'purchase_orders', label: 'Commandes', icon: ShoppingCartIcon },
-                { view: 'part_pricing', label: 'Cotations Pièces', icon: DocumentSearchIcon },
-                { view: 'pre_orders', label: 'Pré-commandes', icon: ShoppingCartIcon },
-                { view: 'clients', label: 'Clients', icon: UsersIcon },
-                { view: 'technicians', label: 'Techniciens', icon: UsersIcon },
-            ]
-        },
-        {
-            title: 'Analyse',
-            icon: ChartBarIcon,
-            items: [
-                { view: 'reports', label: 'Tableau de bord', icon: ChartBarIcon },
-                { view: 'accounting', label: 'Analyse Financière', icon: WalletIcon },
-            ]
+    const sidebarGroups = useMemo(() => {
+        const base = [
+            {
+                title: 'Atelier',
+                icon: WrenchIcon,
+                items: [
+                    { view: 'repair_orders' as const, label: 'Fiches Réparation', icon: WrenchIcon },
+                    { view: 'scheduler' as const, label: 'Planning', icon: CalendarIcon },
+                    { view: 'parts' as const, label: 'Pièces', icon: BoxIcon },
+                    { view: 'templates' as const, label: 'Catalogue', icon: BookOpenIcon },
+                ],
+            },
+            {
+                title: 'Gestion',
+                icon: BookOpenIcon,
+                items: [
+                    { view: 'quotes' as const, label: 'Devis', icon: FileTextIcon },
+                    { view: 'invoices' as const, label: 'Factures', icon: ReceiptTaxIcon },
+                    { view: 'purchase_orders' as const, label: 'Commandes', icon: ShoppingCartIcon },
+                    { view: 'part_pricing' as const, label: 'Cotations Pièces', icon: DocumentSearchIcon },
+                    { view: 'pre_orders' as const, label: 'Pré-commandes', icon: ShoppingCartIcon },
+                    { view: 'clients' as const, label: 'Clients', icon: UsersIcon },
+                    { view: 'users' as const, label: 'Utilisateurs', icon: UsersIcon },
+                    { view: 'technicians' as const, label: 'Techniciens', icon: UsersIcon },
+                ],
+            },
+            {
+                title: 'Analyse',
+                icon: ChartBarIcon,
+                items: [
+                    { view: 'reports' as const, label: 'Tableau de bord', icon: ChartBarIcon },
+                    { view: 'accounting' as const, label: 'Analyse Financière', icon: WalletIcon },
+                ],
+            },
+        ];
+        if (!authSession?.user) {
+            return base;
         }
-    ];
+        return filterSidebarGroups(base, authSession.user.role);
+    }, [authSession?.user?.role]);
 
     const currentClient = quoteToView ? clients.find(c => c.id === quoteToView.clientId) : null;
     const currentVehicle = currentClient && quoteToView ? currentClient.vehicles.find(v => v.id === quoteToView.vehicleId) : null;
@@ -769,7 +860,20 @@ const App: React.FC = () => {
         if (activeGroup) {
             setOpenSection(activeGroup.title);
         }
-    }, [activeView]);
+    }, [activeView, sidebarGroups]);
+
+    if (!authSession?.token) {
+        return (
+            <LoginPage
+                onLoggedIn={(session) => {
+                    setAuthSession(session);
+                    setActiveView(getDefaultSectionForRole(session.user.role));
+                }}
+            />
+        );
+    }
+
+    const canOpenSettings = authSession.user && canAccessSection(authSession.user.role, 'settings');
 
     return (
         <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
@@ -814,10 +918,23 @@ const App: React.FC = () => {
                 </nav>
 
                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                     <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                        <p className="font-semibold text-gray-700 dark:text-gray-200 truncate">{authSession.user.displayName}</p>
+                        <p>{roleLabelsFr[authSession.user.role]}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setAuthSession(null)}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                        Déconnexion
+                    </button>
+                    {canOpenSettings && (
+                    <button onClick={() => setActiveView('settings')} className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${activeView === 'settings' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
                         <CogIcon className="h-5 w-5" />
                         Paramètres
                     </button>
+                    )}
                     <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600">
                         {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
                         <span>{theme === 'light' ? 'Mode Sombre' : 'Mode Clair'}</span>
@@ -832,6 +949,15 @@ const App: React.FC = () => {
                     {activeView === 'templates' && <button onClick={() => { setTemplateToEdit(null); setIsTemplateFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouvelle Intervention</button>}
                     {activeView === 'technicians' && <button onClick={() => { setTechnicianToEdit(null); setIsTechnicianFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Ajouter un Technicien</button>}
                     {activeView === 'purchase_orders' && <button onClick={() => { setPOToEdit(null); setIsPOFormOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">Nouvelle Commande</button>}
+                    {activeView === 'users' && (
+                        <button
+                            type="button"
+                            onClick={() => userAdminRef.current?.openCreate()}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                        >
+                            Nouvel utilisateur
+                        </button>
+                    )}
                 </div>
                 {renderView()}
             </main>
@@ -846,13 +972,17 @@ const App: React.FC = () => {
                 parts={parts}
                 existingQuote={quoteToEdit}
                 nextQuoteNumber={nextQuoteNumber}
+                onOpenNewClientForm={handleOpenNewClientFromQuote}
+                pendingClientAndVehicle={pendingQuoteClientSelection}
+                onPendingClientSelectionConsumed={handlePendingQuoteClientSelectionConsumed}
             />
             <ClientForm 
                 isOpen={isClientFormOpen}
-                onClose={() => setIsClientFormOpen(false)}
+                onClose={handleCloseClientForm}
                 onSave={handleSaveClient}
                 existingClient={clientToEdit}
                 onViewInvoice={handleViewInvoiceFromRepairOrder}
+                firstVehiclePlatePrefill={prefillNewClientVehiclePlate}
             />
             <Modal isOpen={!!quoteToView} onClose={() => setQuoteToView(null)} title={`Détails Devis ${quoteToView?.quoteNumber}`}>
                 <QuoteView 

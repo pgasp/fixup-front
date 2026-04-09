@@ -1,22 +1,80 @@
+import { AUTH_STORAGE_KEY, type AuthSession, type AuthUser } from '../auth/session';
 import { Client, Invoice, PaymentDetails, Quote, QuoteStatus, RepairOrder } from '../types';
 
 const API_BASE = '/api/v1';
 
-const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
-  if (!response.ok) {
-    throw new Error(`API error ${response.status}`);
+let unauthorizedHandler: (() => void) | null = null;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null): void => {
+  unauthorizedHandler = handler;
+};
+
+const getStoredSession = (): AuthSession | null => {
+  if (typeof localStorage === 'undefined') {
+    return null;
   }
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    return JSON.parse(raw) as AuthSession;
+  } catch {
+    return null;
+  }
+};
+
+const getAuthToken = (): string | null => getStoredSession()?.token ?? null;
+
+const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  const token = getAuthToken();
+  if (token && !path.startsWith('/auth/login')) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
+
+  if (response.status === 401) {
+    unauthorizedHandler?.();
+    throw new Error('Unauthorized');
+  }
+
+  if (!response.ok) {
+    let message = `API error ${response.status}`;
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body?.error) {
+        message = body.error;
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
   if (response.status === 204) {
     return undefined as T;
   }
+
   return response.json() as Promise<T>;
 };
 
 export const apiClient = {
+  auth: {
+    login: (email: string, password: string) =>
+      request<{ token: string; user: AuthSession['user'] }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+    me: () => request<{ user: AuthSession['user'] }>('/auth/me'),
+  },
   clients: {
     list: () => request<Client[]>('/clients'),
     create: (payload: Omit<Client, 'id'>) => request<Client>('/clients', { method: 'POST', body: JSON.stringify(payload) }),
@@ -41,5 +99,15 @@ export const apiClient = {
     createFromRepairOrder: (repairOrderId: string) => request<Invoice>('/invoices', { method: 'POST', body: JSON.stringify({ repairOrderId }) }),
     pay: (invoiceId: string, payload: PaymentDetails) => request<Invoice>(`/invoices/${invoiceId}/pay`, { method: 'POST', body: JSON.stringify(payload) }),
     remove: (id: string) => request<void>(`/invoices/${id}`, { method: 'DELETE' }),
+  },
+  users: {
+    list: () => request<AuthUser[]>('/users'),
+    create: (payload: { email: string; displayName: string; role: AuthUser['role']; password: string }) =>
+      request<AuthUser>('/users', { method: 'POST', body: JSON.stringify(payload) }),
+    update: (id: string, payload: { email?: string; displayName?: string; role?: AuthUser['role'] }) =>
+      request<AuthUser>(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    setPassword: (id: string, password: string) =>
+      request<void>(`/users/${id}/password`, { method: 'PUT', body: JSON.stringify({ password }) }),
+    remove: (id: string) => request<void>(`/users/${id}`, { method: 'DELETE' }),
   },
 };

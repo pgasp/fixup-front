@@ -10,11 +10,13 @@ interface ClientFormProps {
   onSave: (client: Client) => void;
   existingClient?: Client | null;
   onViewInvoice: (repairOrderId: string) => void;
+  /** Préremplit la plaque du premier véhicule (ex. recherche devis). */
+  firstVehiclePlatePrefill?: string | null;
 }
 
 const emptyVehicle: Omit<Vehicle, 'id' | 'serviceHistory'> = { licensePlate: '', make: '', model: '' };
 
-const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existingClient, onViewInvoice }) => {
+const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existingClient, onViewInvoice, firstVehiclePlatePrefill }) => {
   const [client, setClient] = useState<Omit<Client, 'id'>>({
     name: '', email: '', phone: '', address: '', postalCode: '', city: '', vehicles: []
   });
@@ -27,12 +29,16 @@ const ClientForm: React.FC<ClientFormProps> = ({ isOpen, onClose, onSave, existi
       if (existingClient) {
         setClient(JSON.parse(JSON.stringify(existingClient))); // Deep copy
       } else {
-        setClient({ name: '', email: '', phone: '', address: '', postalCode: '', city: '', vehicles: [{...emptyVehicle, id: crypto.randomUUID(), serviceHistory: []}] });
+        const firstVehicle = { ...emptyVehicle, id: crypto.randomUUID(), serviceHistory: [] as VehicleServiceHistory[] };
+        if (firstVehiclePlatePrefill?.trim()) {
+          firstVehicle.licensePlate = firstVehiclePlatePrefill.trim().toUpperCase();
+        }
+        setClient({ name: '', email: '', phone: '', address: '', postalCode: '', city: '', vehicles: [firstVehicle] });
       }
       setVehicleInfoError(null);
       setExpandedHistories({});
     }
-  }, [existingClient, isOpen]);
+  }, [existingClient, isOpen, firstVehiclePlatePrefill]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

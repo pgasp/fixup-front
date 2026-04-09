@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { HttpError } from '../errors';
+import { asRouteParam } from '../routeParams';
 import { createInvoiceFromRepairOrder, createRepairOrderFromQuote } from '../services/workflows';
 import { AppDataStore } from '../types';
 
@@ -45,6 +46,6 @@ export const deleteRepairOrder = (store: AppDataStore) => (req: Request, res: Re
 };
 
 export const createInvoiceForRepairOrder = (store: AppDataStore) => (req: Request, res: Response): void => {
-  const invoice = createInvoiceFromRepairOrder(store, req.params.orderId);
+  const invoice = createInvoiceFromRepairOrder(store, asRouteParam(req.params.orderId));
   res.status(201).json(invoice);
 };
